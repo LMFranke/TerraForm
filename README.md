@@ -27,7 +27,7 @@ This project is built using Maven. To run it locally, follow these steps:
 
 1.  **Clone the repository:**
     ```bash
-    git clone [YOUR_REPOSITORY_URL]
+    git clone [https://github.com/LMFranke/TerraForm.git]
     ```
 2.  **Navigate to the project directory:**
     ```bash
