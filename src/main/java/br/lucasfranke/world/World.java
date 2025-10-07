@@ -1,5 +1,6 @@
 package br.lucasfranke.world;
 
+import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.type.TileType;
 
 import java.util.HashMap;
@@ -8,39 +9,33 @@ import java.util.Map;
 public class World {
 
     private final Map<String, Chunk> chunks = new HashMap<>();
-    private final int chunkSize;
     private final long seed;
     private final Noise1D terrainNoise;
     private final Noise2D caveNoise;
 
-    public World(int chunkSize, long seed) {
-        this.chunkSize = chunkSize;
+    public World(long seed) {
         this.seed = seed;
         this.terrainNoise = new Noise1D(seed);
         this.caveNoise = new Noise2D(seed);
     }
 
-    public int getChunkSize() {
-        return chunkSize;
-    }
-
-    public Chunk getChunk(int cx, int cy) {
-        String key = cx + "," + cy;
+    public Chunk getChunk(int cx) {
+        String key = cx + "";
         if (!chunks.containsKey(key)) {
-            Chunk c = generateChunk(cx, cy);
+            Chunk c = generateChunk(cx);
             chunks.put(key, c);
         }
         return chunks.get(key);
     }
 
-    private Chunk generateChunk(int cx, int cy) {
-        TileType[][] blocks = new TileType[chunkSize][chunkSize];
+    private Chunk generateChunk(int cx) {
+        TileType[][] blocks = new TileType[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
 
-        int worldXStart = cx * chunkSize;
-        int worldYStart = cy * chunkSize;
+        int worldXStart = cx * EnginePanel.CHUNK_WIDTH;
+        int worldYStart = 10;
 
-        for (int row = 0; row < chunkSize; row++) {
-            for (int col = 0; col < chunkSize; col++) {
+        for (int row = EnginePanel.MAX_WORLD_HEIGHT - 1; row > EnginePanel.MIN_WORLD_HEIGHT; row--) {
+            for (int col = 0; col < EnginePanel.CHUNK_WIDTH; col++) {
                 int worldX = worldXStart + col;
                 int worldY = worldYStart + row;
 
@@ -61,8 +56,8 @@ public class World {
             }
         }
 
-        for (int row = 0; row < chunkSize; row++) {
-            for (int col = 0; col < chunkSize; col++) {
+        for (int row = EnginePanel.MAX_WORLD_HEIGHT - 1; row > EnginePanel.MIN_WORLD_HEIGHT; row--) {
+            for (int col = 0; col < EnginePanel.CHUNK_WIDTH; col++) {
                 int worldX = worldXStart + col;
                 int worldY = worldYStart + row;
 
@@ -77,10 +72,10 @@ public class World {
         }
 
 
-        TileType[][] newBlocks = new TileType[chunkSize][chunkSize];
+        TileType[][] newBlocks = new TileType[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
 
-        for (int row = 0; row < chunkSize; row++) {
-            for (int col = 0; col < chunkSize; col++) {
+        for (int row = EnginePanel.MAX_WORLD_HEIGHT - 1; row > EnginePanel.MIN_WORLD_HEIGHT; row--) {
+            for (int col = 0; col < EnginePanel.CHUNK_WIDTH; col++) {
                 int neighbors = countStoneNeighbors(blocks, row, col);
 
                 if (blocks[row][col] == TileType.BACKGROUND_STONE) {
@@ -93,7 +88,7 @@ public class World {
             }
         }
 
-        return new Chunk(cx, cy, blocks);
+        return new Chunk(cx, blocks);
     }
 
     private int countStoneNeighbors(TileType[][] blocks, int row, int col) {
@@ -106,7 +101,7 @@ public class World {
                 int nx = col + x;
                 int ny = row + y;
 
-                if (nx >= 0 && nx < chunkSize && ny >= 0 && ny < chunkSize) {
+                if (nx >= 0 && nx < EnginePanel.CHUNK_WIDTH && ny >= 0 && ny < EnginePanel.CHUNK_HEIGHT) {
                     if (blocks[ny][nx] == TileType.STONE) {
                         count++;
                     }
@@ -117,10 +112,5 @@ public class World {
         }
         return count;
     }
-
-//    // Exemplo de descarte simples
-//    public void unloadChunk(int cx, int cy) {
-//        chunks.remove(key(cx,cy));
-//    }
 
 }

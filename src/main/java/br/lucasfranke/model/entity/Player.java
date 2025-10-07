@@ -38,7 +38,7 @@ public class Player extends Entity {
         super();
 
         this.worldX = EnginePanel.tileSquare * 10000.0;
-        this.worldY = EnginePanel.tileSquare * 42.0;
+        this.worldY = EnginePanel.tileSquare * 0;
         this.playerX = EnginePanel.WIDTH / 2 - (EnginePanel.tileSquare / 2);
         this.playerY = EnginePanel.HEIGHT / 2 - (EnginePanel.tileSquare / 2);
 
@@ -182,14 +182,15 @@ public class Player extends Entity {
 
         for (int ty = (int) topTile; ty <= bottomTile; ty++) {
             for (int tx = (int) leftTile; tx <= rightTile; tx++) {
-                int cx = Math.floorDiv(tx, world.getChunkSize());
-                int cy = Math.floorDiv(ty, world.getChunkSize());
+                int cx = Math.floorDiv(tx, EnginePanel.CHUNK_WIDTH);
 
-                int col = Math.floorMod(tx, world.getChunkSize());
-                int row = Math.floorMod(ty, world.getChunkSize());
+                int col = Math.floorMod(tx, EnginePanel.CHUNK_WIDTH);
+                int row = Math.floorMod(ty, EnginePanel.CHUNK_HEIGHT);
 
-                Chunk chunk = world.getChunk(cx, cy);
-                if (chunk == null) continue;
+                Chunk chunk = world.getChunk(cx);
+                if (chunk == null) {
+                    continue;
+                }
 
                 TileType tile = chunk.blocks[row][col];
                 if (tile != null && tile.isSolid()) {

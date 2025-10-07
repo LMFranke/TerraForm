@@ -9,24 +9,31 @@ import java.awt.*;
 public class WorldManager {
 
     private static final Color MOUSE_HOVER_COLOR = new Color(255, 255, 0, 120);
+    private static final Color[] SHADOW_COLORS = new Color[16];
+
+    static {
+        for (int i = 0; i < 16; i++) {
+            float opacity = 1.0f - (i / 15.0f);
+            SHADOW_COLORS[i] = new Color(0, 0, 0, opacity);
+        }
+    }
 
     public final World world;
 
     public int[] hoveredTileWorldPosition = {-1, -1};
 
     public WorldManager() {
-        world = new World(16, 999991L);
-        spawnPlayer();
+        world = new World(999991L);
+//        spawnPlayer();
     }
 
     public void spawnPlayer() {
-        int xChunk = (int) (EnginePanel.player.worldX / EnginePanel.tileSquare / world.getChunkSize());
-        int yChunk = (int) (EnginePanel.player.worldY / EnginePanel.tileSquare / world.getChunkSize());
+        int xChunk = (int) (EnginePanel.player.worldX / EnginePanel.tileSquare / EnginePanel.CHUNK_WIDTH);
 
-        int xPlayerChunk = (int) Math.abs(xChunk * world.getChunkSize() - EnginePanel.player.worldX / EnginePanel.tileSquare);
-        int yPlayerChunk = (int) Math.abs(yChunk * world.getChunkSize() - EnginePanel.player.worldY / EnginePanel.tileSquare);
+        int xPlayerChunk = (int) (EnginePanel.player.worldX % EnginePanel.CHUNK_WIDTH);
+        int yPlayerChunk = (int) Math.abs(EnginePanel.player.worldY / EnginePanel.tileSquare);
 
-        Chunk chunk = world.getChunk(xChunk, yChunk);
+        Chunk chunk = world.getChunk(xChunk);
 
         while (chunk.blocks[yPlayerChunk + 1][xPlayerChunk] != TileType.GRASS) {
             if (chunk.blocks[yPlayerChunk + 1][xPlayerChunk] == TileType.AIR) {
@@ -36,7 +43,7 @@ public class WorldManager {
             }
         }
 
-        EnginePanel.player.worldY = (yChunk * world.getChunkSize() + yPlayerChunk) * EnginePanel.tileSquare;
+        EnginePanel.player.worldY = ( EnginePanel.CHUNK_HEIGHT + yPlayerChunk) * EnginePanel.tileSquare;
     }
 
     public void update() {
@@ -69,35 +76,37 @@ public class WorldManager {
         int playerWorldX = (int) EnginePanel.player.worldX;
         int playerWorldY = (int) EnginePanel.player.worldY;
 
-        int chunkSize = world.getChunkSize();
-        int chunkX = playerWorldX / (chunkSize * tileSize);
-        int chunkY = playerWorldY / (chunkSize * tileSize);
+        int chunkX = playerWorldX / (EnginePanel.CHUNK_WIDTH * tileSize);
 
         for (int cx = chunkX - 1; cx <= chunkX + 1; cx++) {
-            for (int cy = chunkY - 1; cy <= chunkY + 1; cy++) {
-                Chunk chunk = world.getChunk(cx, cy);
-                if (chunk == null) continue;
+            Chunk chunk = world.getChunk(cx);
+            if (chunk == null) {
+                continue;
+            }
 
-                for (int row = 0; row < chunk.blocks.length; row++) {
-                    for (int col = 0; col < chunk.blocks[0].length; col++) {
-                        TileType tile = chunk.blocks[row][col];
-                        if (tile == null || tile.getSprite() == null) continue;
+            for (int row = 0; row < chunk.blocks.length; row++) {
+                for (int col = 0; col < chunk.blocks[0].length; col++) {
+                    TileType tile = chunk.blocks[row][col];
 
-                        int worldX = cx * chunkSize * tileSize + col * tileSize;
-                        int worldY = cy * chunkSize * tileSize + row * tileSize;
+                    if (tile == null || tile.getSprite() == null) {
+                        continue;
+                    }
+
+                    int worldX = cx * EnginePanel.CHUNK_WIDTH * tileSize + col * tileSize;
+                    int worldY = row * tileSize;
 
                         int screenX = worldX - playerWorldX + EnginePanel.player.playerX;
                         int screenY = worldY - playerWorldY + EnginePanel.player.playerY;
 
-                        if (screenX + tileSize < 0 || screenX > screenWidth ||
-                                screenY + tileSize < 0 || screenY > screenHeight) {
-                            continue;
-                        }
-
-                        g2.drawImage(tile.getSprite(), screenX, screenY, tileSize, tileSize, null);
+                    if (screenX + tileSize < 0 || screenX > screenWidth || screenY + tileSize < 0 || screenY > screenHeight) {
+                        continue;
                     }
+
+                    g2.drawImage(tile.getSprite(), screenX, screenY, tileSize, tileSize, null);
+
                 }
             }
+
         }
 
         if (hoveredTileWorldPosition[0] != -1) {
@@ -116,11 +125,13 @@ public class WorldManager {
         int tileX = hoveredTileWorldPosition[0];
         int tileY = hoveredTileWorldPosition[1];
 
-        int xChunk = tileX / world.getChunkSize();
-        int yChunk = tileY / world.getChunkSize();
+        int xChunk = tileX / EnginePanel.CHUNK_WIDTH;
 
-        Chunk chunk = world.getChunk(xChunk, yChunk);
-        if (chunk == null) return;
+        Chunk chunk = world.getChunk(xChunk);
+
+        if (chunk == null) {
+            return;
+        }
 
         TileType current = chunk.getBlock(tileX, tileY);
 

@@ -2,9 +2,7 @@ package br.lucasfranke.ui;
 
 import br.lucasfranke.EnginePanel;
 import br.lucasfranke.inventory.HotBar;
-import br.lucasfranke.inventory.HotBarUI;
 import br.lucasfranke.inventory.Inventory;
-import br.lucasfranke.inventory.InventoryUI;
 import br.lucasfranke.listeners.MouseManager;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;

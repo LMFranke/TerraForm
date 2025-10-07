@@ -1,6 +1,7 @@
-package br.lucasfranke.inventory;
+package br.lucasfranke.ui;
 
 import br.lucasfranke.EnginePanel;
+import br.lucasfranke.inventory.HotBar;
 import br.lucasfranke.model.item.Item;
 
 import java.awt.*;
