@@ -5,6 +5,7 @@ import br.lucasfranke.listeners.MouseManager;
 import br.lucasfranke.model.type.TileType;
 
 import java.awt.*;
+import java.util.Random;
 
 public class WorldManager {
 
@@ -23,7 +24,7 @@ public class WorldManager {
     public int[] hoveredTileWorldPosition = {-1, -1};
 
     public WorldManager() {
-        world = new World(999991L);
+        world = new World(new Random().nextInt(100000));
 //        spawnPlayer();
     }
 
@@ -75,38 +76,57 @@ public class WorldManager {
 
         int playerWorldX = (int) EnginePanel.player.worldX;
         int playerWorldY = (int) EnginePanel.player.worldY;
+        int playerScreenX = EnginePanel.player.playerX;
+        int playerScreenY = EnginePanel.player.playerY;
 
-        int chunkX = playerWorldX / (EnginePanel.CHUNK_WIDTH * tileSize);
+        // Calculate the visible world's limit on screen
+        int worldStartX = playerWorldX - playerScreenX;
+        int worldStartY = playerWorldY - playerScreenY;
+        int worldEndX = worldStartX + screenWidth;
+        int worldEndY = worldStartY + screenHeight;
 
-        for (int cx = chunkX - 1; cx <= chunkX + 1; cx++) {
-            Chunk chunk = world.getChunk(cx);
-            if (chunk == null) {
-                continue;
-            }
+        // Convert the world coordinates to tile coordinates
+        int startCol = worldStartX / tileSize;
+        int endCol = worldEndX / tileSize;
+        int startRow = worldStartY / tileSize;
+        int endRow = worldEndY / tileSize;
 
-            for (int row = 0; row < chunk.blocks.length; row++) {
-                for (int col = 0; col < chunk.blocks[0].length; col++) {
-                    TileType tile = chunk.blocks[row][col];
 
-                    if (tile == null || tile.getSprite() == null) {
-                        continue;
-                    }
+        for (int row = startRow; row <= endRow; row++) {
+            for (int col = startCol; col <= endCol; col++) {
 
-                    int worldX = cx * EnginePanel.CHUNK_WIDTH * tileSize + col * tileSize;
-                    int worldY = row * tileSize;
-
-                        int screenX = worldX - playerWorldX + EnginePanel.player.playerX;
-                        int screenY = worldY - playerWorldY + EnginePanel.player.playerY;
-
-                    if (screenX + tileSize < 0 || screenX > screenWidth || screenY + tileSize < 0 || screenY > screenHeight) {
-                        continue;
-                    }
-
-                    g2.drawImage(tile.getSprite(), screenX, screenY, tileSize, tileSize, null);
-
+                int chunkX = Math.floorDiv(col, EnginePanel.CHUNK_WIDTH);
+                Chunk chunk = world.getChunk(chunkX);
+                if (chunk == null) {
+                    continue;
                 }
-            }
 
+                int tileXInChunk = Math.floorMod(col, EnginePanel.CHUNK_WIDTH);
+                int tileYInChunk = Math.floorMod(row, EnginePanel.CHUNK_HEIGHT);
+
+                if (tileYInChunk < 0 || tileYInChunk >= EnginePanel.CHUNK_HEIGHT) {
+                    continue;
+                }
+
+                TileType tile = chunk.blocks[tileYInChunk][tileXInChunk];
+
+                if (tile == null || tile.getSprite() == null) {
+                    continue;
+                }
+
+                int screenX = (col * tileSize) - playerWorldX + playerScreenX;
+                int screenY = (row * tileSize) - playerWorldY + playerScreenY;
+
+                g2.drawImage(tile.getSprite(), screenX, screenY, tileSize, tileSize, null);
+
+                byte lightLevel = chunk.lightMap[tileYInChunk][tileXInChunk];
+
+                if ((int) lightLevel >= 0 && (int) lightLevel < SHADOW_COLORS.length) {
+                    g2.setColor(SHADOW_COLORS[lightLevel]);
+                    g2.fillRect(screenX, screenY, tileSize, tileSize);
+                }
+
+            }
         }
 
         if (hoveredTileWorldPosition[0] != -1) {
@@ -139,6 +159,15 @@ public class WorldManager {
             case GRASS -> chunk.setBlock(tileX, tileY, TileType.BACKGROUND_GRASS);
             case DIRT -> chunk.setBlock(tileX, tileY, TileType.BACKGROUND_DIRT);
             case STONE -> chunk.setBlock(tileX, tileY, TileType.BACKGROUND_STONE);
+        }
+
+        world.calculateLightForChunk(xChunk);
+
+        int localX = tileX % EnginePanel.CHUNK_WIDTH;
+        if (localX == 0) {
+            world.calculateLightForChunk(xChunk - 1);
+        } else if (localX == EnginePanel.CHUNK_WIDTH - 1) {
+            world.calculateLightForChunk(xChunk + 1);
         }
     }
 }
