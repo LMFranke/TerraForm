@@ -69,6 +69,18 @@ public class Item {
         this.quantity = quantity;
     }
 
+    public void decreaseQuantity() {
+        this.quantity--;
+    }
+
+    public void increaseQuantity() {
+        this.quantity++;
+    }
+
+    public void increaseQuantity(int quantity) {
+        this.quantity += quantity;
+    }
+
     @Override
     public String toString() {
         return "Item{" +

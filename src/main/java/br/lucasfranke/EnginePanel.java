@@ -76,6 +76,7 @@ public class EnginePanel extends JPanel implements Runnable {
         double time = System.currentTimeMillis();
 
         player.linkManagers(worldManager);
+        worldManager.spawnPlayerOnGround();
 
         while (thread != null && thread.isAlive()) {
             long currentTime = System.nanoTime();

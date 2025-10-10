@@ -54,9 +54,13 @@ public class InventoryUI {
 
                 Item item = inventory.getItem(row, col);
                 if (item != null && item.getTileType().getSprite() != null) {
-                    int offSet = 12;
-                    int itemSize = slotSize - offSet;
-                    g2.drawImage(item.getSprite(), x + offSet / 2, y + offSet / 2, itemSize, itemSize, null);
+                    if (item.getQuantity() <= 0) {
+                        inventory.setItem(row, col, null);
+                    } else {
+                        int offSet = 12;
+                        int itemSize = slotSize - offSet;
+                        g2.drawImage(item.getSprite(), x + offSet / 2, y + offSet / 2, itemSize, itemSize, null);
+                    }
                 }
             }
         }

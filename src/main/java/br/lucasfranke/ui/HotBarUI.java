@@ -29,9 +29,13 @@ public class HotBarUI {
 
             Item item = hotBar.getItem(0, col);
             if (item != null && item.getTileType().getSprite() != null) {
-                int offSet = 12;
-                int itemSize = slotSize - offSet;
-                g2.drawImage(item.getSprite(), x + offSet / 2, startY + offSet / 2, itemSize, itemSize, null);
+                if (item.getQuantity() <= 0) {
+                    hotBar.setItem(0, col, null);
+                } else {
+                    int offSet = 12;
+                    int itemSize = slotSize - offSet;
+                    g2.drawImage(item.getSprite(), x + offSet / 2, startY + offSet / 2, itemSize, itemSize, null);
+                }
             }
 
         }

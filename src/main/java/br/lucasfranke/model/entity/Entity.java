@@ -20,7 +20,8 @@ public abstract class Entity {
     public int worldY;
 
     public Rectangle bounds;
-    protected int width, height;
+    public int width;
+    public int height;
     public boolean isCollision;
     public int speed;
     protected Direction direction;

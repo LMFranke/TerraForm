@@ -104,10 +104,16 @@ public class World {
         return new Chunk(cx, newBlocks);
     }
 
-    /**
-     * Calculates lighting for a chunk, including neighbor chunks to prevent seams.
-     * @param cx The X-coordinate of the chunk to update.
-     */
+    public void calculateLightForChunkAndNeighbors(int cx) {
+        calculateLightForChunk(cx);
+        calculateLightForChunk(cx + 1);
+        calculateLightForChunk(cx - 1);
+    }
+
+        /**
+         * Calculates lighting for a chunk, including neighbor chunks to prevent seams.
+         * @param cx The X-coordinate of the chunk to update.
+         */
     public void calculateLightForChunk(int cx) {
         Chunk mainChunk = getChunk(cx);
         Chunk leftChunk = chunks.get((cx - 1) + "");

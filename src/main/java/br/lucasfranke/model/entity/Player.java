@@ -87,9 +87,16 @@ public class Player extends Entity {
 
         if (MouseManager.isButtonPressed(MouseEvent.BUTTON1) && !EnginePanel.uiManager.isInventoryOpen()) {
             if (worldManager.hoveredTileWorldPosition[0] != -1) {
-                worldManager.handleBlockClick();
+                worldManager.handleBlockInteraction();
             }
             MouseManager.unpressButton(MouseEvent.BUTTON1);
+        }
+
+        if (MouseManager.isButtonPressed(MouseEvent.BUTTON3) && !EnginePanel.uiManager.isInventoryOpen()) {
+            if (worldManager.hoveredTileWorldPosition[0] != -1) {
+                worldManager.handleBlockInteraction();
+            }
+            MouseManager.unpressButton(MouseEvent.BUTTON3);
         }
 
         // process the movent inputs
