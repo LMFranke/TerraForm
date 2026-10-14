@@ -148,6 +148,10 @@ public class Player extends Entity {
         }
     }
 
+    public boolean isBackgroundMode() {
+        return KeyManager.isKeyPressed(KeyEvent.VK_SHIFT) || this.direction == Direction.UP;
+    }
+
     /**
      * Update the animation based on the current player's state
      */
@@ -157,8 +161,12 @@ public class Player extends Entity {
         state = isMovingHorizontally ? AnimationState.WALK : AnimationState.IDLE;
 
         if (state == AnimationState.IDLE) {
-            if (KeyManager.isKeyPressed(KeyEvent.VK_W)) direction = Direction.UP;
-            if (KeyManager.isKeyPressed(KeyEvent.VK_S)) direction = Direction.DOWN;
+            if (KeyManager.isKeyPressed(KeyEvent.VK_W) || KeyManager.isKeyPressed(KeyEvent.VK_SHIFT)) {
+                direction = Direction.UP;
+            }
+            if (KeyManager.isKeyPressed(KeyEvent.VK_S)) {
+                direction = Direction.DOWN;
+            }
         }
 
         setAnimation();

@@ -3,6 +3,7 @@ package br.lucasfranke;
 import br.lucasfranke.model.type.TileType;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -13,7 +14,6 @@ public class Assets {
     public static BufferedImage[] playerWalkLeft;
     public static BufferedImage[] playerWalkUp;
     public static BufferedImage[] playerWalkDown;
-
     public static BufferedImage[] playerIdleRight;
     public static BufferedImage[] playerIdleLeft;
     public static BufferedImage[] playerIdleUp;
@@ -24,11 +24,14 @@ public class Assets {
         TileType.DIRT.setSprite(load("src/main/resources/image/tiles/dirtTile.png"));
         TileType.STONE.setSprite(load("src/main/resources/image/tiles/stoneTile.png"));
         TileType.AIR.setSprite(load("src/main/resources/image/tiles/skyTile.png"));
-
         TileType.BACKGROUND_DIRT.setSprite(load("src/main/resources/image/tiles/backgroundDirtTile.png"));
         TileType.BACKGROUND_GRASS.setSprite(load("src/main/resources/image/tiles/backgroundGrassTile.png"));
         TileType.BACKGROUND_STONE.setSprite(load("src/main/resources/image/tiles/backgroundStoneTile.png"));
 
+        TileType.TORCH.setAnimation(
+                loadSpriteSheet("src/main/resources/image/tiles/torchTile.png", EnginePanel.tileOriginalSquare, EnginePanel.tileOriginalSquare),
+                10
+        );
 
         playerWalkRight = new BufferedImage[] { load("src/main/resources/image/player/boy_right_1.png"), load("src/main/resources/image/player/boy_right_2.png")};
         playerWalkLeft  = new BufferedImage[] { load("src/main/resources/image/player/boy_left_1.png"), load("src/main/resources/image/player/boy_left_2.png")};
@@ -45,4 +48,39 @@ public class Assets {
         return ImageIO.read(new File(filename));
     }
 
+    private static BufferedImage[] loadSpriteSheet(String filename, int frameWidth, int frameHeight) {
+        File file = new File(filename);
+        if (file.exists()) {
+            try {
+                BufferedImage sheet = ImageIO.read(file);
+                int cols = Math.max(1, sheet.getWidth() / frameWidth);
+                int rows = Math.max(1, sheet.getHeight() / frameHeight);
+                BufferedImage[] frames = new BufferedImage[cols * rows];
+
+                int index = 0;
+                for (int r = 0; r < rows; r++) {
+                    for (int c = 0; c < cols; c++) {
+                        frames[index++] = sheet.getSubimage(
+                                c * frameWidth,
+                                r * frameHeight,
+                                frameWidth,
+                                frameHeight
+                        );
+                    }
+                }
+                return frames;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        BufferedImage fallback = new BufferedImage(frameWidth, frameHeight, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = fallback.createGraphics();
+        g.setColor(new Color(120, 72, 32));
+        g.fillRect(7, 7, 2, 7);
+        g.setColor(new Color(255, 140, 0));
+        g.fillRect(6, 4, 4, 3);
+        g.dispose();
+        return new BufferedImage[]{fallback};
+    }
 }

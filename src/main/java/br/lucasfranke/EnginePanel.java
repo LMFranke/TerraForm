@@ -121,10 +121,11 @@ public class EnginePanel extends JPanel implements Runnable {
         player.draw(g2d);
         uiManager.draw(g2d, WIDTH, HEIGHT);
 
-        g2d.setColor(Color.RED);
+        g2d.setColor(Color.WHITE);
         g2d.setFont(new Font("Arial", Font.BOLD, 16));
         g2d.drawString("X: " + (int) (player.worldX / tileSquare), 10, 20);
-        g2d.drawString("Y: " + (int) (player.worldY / tileSquare), 10, 35);
+        g2d.drawString("Y: " + (int) (player.worldY / tileSquare), 10, 38);
+        g2d.drawString("Hour: " + worldManager.getFormattedTime() + " | Sun light: " + worldManager.world.getSunLightLevel() + " [H: +1h]", 10, 56);
     }
 
 }

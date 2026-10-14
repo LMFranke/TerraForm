@@ -14,10 +14,10 @@ public class Inventory implements ItemContainer {
     public Inventory(int rows, int cols) {
         this.rows = rows;
         this.cols = cols;
-
         slots = new Item[rows][cols];
 
         slots[0][0] = new Item(TileType.GRASS, 64);
+        slots[0][1] = new Item(TileType.TORCH, 64);
         slots[3][5] = new Item(TileType.STONE, 48);
         slots[4][0] = new Item(TileType.STONE, 48);
     }
