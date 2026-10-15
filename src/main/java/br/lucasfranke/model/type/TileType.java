@@ -5,27 +5,29 @@ import java.awt.image.BufferedImage;
 
 public enum TileType {
 
-    AIR(false, false, false, 0),
-    GRASS(true, true, true, 0),
-    DIRT(true, true, true, 0),
-    STONE(true, true, true, 0),
-    BACKGROUND_DIRT(false, false, false, 0),
-    BACKGROUND_GRASS(false, false, false, 0),
-    BACKGROUND_STONE(false, false, false, 0),
-    TORCH(false, true, true, 14);
+    AIR(false, false, false, 0, 0),
+    GRASS(true, true, true, 0, 55),             // ~0.9 sec
+    DIRT(true, true, true, 0, 55),              // ~0.9 sec
+    STONE(true, true, true, 0, 150),            // ~2.5 sec
+    BACKGROUND_DIRT(false, false, false, 0, 45),
+    BACKGROUND_GRASS(false, false, false, 0, 45),
+    BACKGROUND_STONE(false, false, false, 0, 110),
+    TORCH(false, true, true, 14, 1);
 
     private final boolean solid;
     private final boolean placeable;
     private final boolean breakable;
     private final int lightEmission;
+    private final int hardness;
     private BufferedImage sprite;
     private Sprite animation;
 
-    TileType(boolean solid, boolean placeable, boolean breakable, int lightEmission) {
+    TileType(boolean solid, boolean placeable, boolean breakable, int lightEmission, int hardness) {
         this.solid = solid;
         this.placeable = placeable;
         this.breakable = breakable;
         this.lightEmission = lightEmission;
+        this.hardness = hardness;
     }
 
     public boolean isSolid() {
@@ -42,6 +44,20 @@ public enum TileType {
 
     public int getLightEmission() {
         return lightEmission;
+    }
+
+    public int getHardness() {
+        return hardness;
+    }
+
+    public TileType getDropType() {
+        return switch (this) {
+            case GRASS, BACKGROUND_GRASS -> GRASS;
+            case DIRT, BACKGROUND_DIRT -> DIRT;
+            case STONE, BACKGROUND_STONE -> STONE;
+            case TORCH -> TORCH;
+            default -> AIR;
+        };
     }
 
     public BufferedImage getSprite() {

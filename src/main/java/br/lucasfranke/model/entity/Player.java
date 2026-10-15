@@ -5,11 +5,14 @@ import br.lucasfranke.EnginePanel;
 import br.lucasfranke.Sprite;
 import br.lucasfranke.inventory.HotBar;
 import br.lucasfranke.inventory.Inventory;
+import br.lucasfranke.inventory.ItemContainer;
 import br.lucasfranke.listeners.KeyManager;
 import br.lucasfranke.listeners.MouseManager;
+import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.AnimationState;
 import br.lucasfranke.model.type.Direction;
 import br.lucasfranke.model.type.TileType;
+import br.lucasfranke.sound.Sound;
 import br.lucasfranke.world.Chunk;
 import br.lucasfranke.world.World;
 import br.lucasfranke.world.WorldManager;
@@ -22,12 +25,16 @@ import java.util.Map;
 
 public class Player extends Entity {
 
+    public static final int MAX_STACK_SIZE = 64;
+
     private WorldManager worldManager;
     private World world;
 
     private final Map<String, Sprite> animations = new HashMap<>();
+
     public double worldX;
     public double worldY;
+
     public final int playerX;
     public final int playerY;
 
@@ -39,6 +46,7 @@ public class Player extends Entity {
 
         this.worldX = EnginePanel.tileSquare * 10000.0;
         this.worldY = EnginePanel.tileSquare * 0;
+
         this.playerX = EnginePanel.WIDTH / 2 - (EnginePanel.tileSquare / 2);
         this.playerY = EnginePanel.HEIGHT / 2 - (EnginePanel.tileSquare / 2);
 
@@ -47,9 +55,11 @@ public class Player extends Entity {
 
         this.width = EnginePanel.tileSquare - 8;
         this.height = EnginePanel.tileSquare - 2;
+
         this.speed = 5;
         this.gravity = 0.3;
         this.maxFallSpeed = 12;
+
         this.direction = Direction.RIGHT;
         this.state = AnimationState.IDLE;
 
@@ -76,30 +86,37 @@ public class Player extends Entity {
         g.drawImage(sprite.getFrame(), playerX, playerY, EnginePanel.tileSquare, EnginePanel.tileSquare, null);
     }
 
-    /**
-     * Process all the player's input
-     */
+    public boolean isBackgroundMode() {
+        return KeyManager.isKeyPressed(KeyEvent.VK_SHIFT) || this.direction == Direction.UP;
+    }
+
     private void handleInput() {
         if (KeyManager.isKeyPressed(KeyEvent.VK_E)) {
             EnginePanel.uiManager.toggleInventory(inventory);
             KeyManager.unpressKey(KeyEvent.VK_E);
         }
 
-        if (MouseManager.isButtonPressed(MouseEvent.BUTTON1) && !EnginePanel.uiManager.isInventoryOpen()) {
-            if (worldManager.hoveredTileWorldPosition[0] != -1) {
-                worldManager.handleBlockInteraction();
+        if (!EnginePanel.uiManager.isInventoryOpen()) {
+            if (MouseManager.isButtonPressed(MouseEvent.BUTTON1)) {
+                if (worldManager.hoveredTileWorldPosition[0] != -1) {
+                    worldManager.handleBlockInteraction();
+                } else {
+                    worldManager.resetMining();
+                }
+            } else {
+                worldManager.resetMining();
             }
-            MouseManager.unpressButton(MouseEvent.BUTTON1);
+
+            if (MouseManager.isButtonPressed(MouseEvent.BUTTON3)) {
+                if (worldManager.hoveredTileWorldPosition[0] != -1) {
+                    worldManager.handleBlockInteraction();
+                }
+                MouseManager.unpressButton(MouseEvent.BUTTON3);
+            }
+        } else {
+            worldManager.resetMining();
         }
 
-        if (MouseManager.isButtonPressed(MouseEvent.BUTTON3) && !EnginePanel.uiManager.isInventoryOpen()) {
-            if (worldManager.hoveredTileWorldPosition[0] != -1) {
-                worldManager.handleBlockInteraction();
-            }
-            MouseManager.unpressButton(MouseEvent.BUTTON3);
-        }
-
-        // process the movent inputs
         double moveX = 0;
         double moveY = 0;
 
@@ -108,33 +125,90 @@ public class Player extends Entity {
 
         if (moveX != 0) {
             direction = moveX > 0 ? Direction.RIGHT : Direction.LEFT;
-        }
-
-        if (moveX != 0) {
             moveX *= speed;
         }
 
         if (KeyManager.isKeyPressed(KeyEvent.VK_SPACE) && !isFalling) {
             fallSpeed = -6;
             isFalling = true;
+            EnginePanel.soundManager.playSound(Sound.PLAYER_JUMP);
         }
 
         fallSpeed += gravity;
         if (fallSpeed > maxFallSpeed) fallSpeed = maxFallSpeed;
+
         moveY += fallSpeed;
 
         move(moveX, moveY);
     }
 
-    /**
-     * Moves the entity by dx and dy, checking collision on each axis separately to allow the player to slide on walls
-     */
+    public boolean addItem(TileType type, int amount) {
+        if (type == null || type == TileType.AIR || amount <= 0) {
+            return false;
+        }
+
+        int remaining = amount;
+
+        remaining = stackIntoContainer(hotBar, type, remaining);
+        if (remaining > 0) {
+            remaining = stackIntoContainer(inventory, type, remaining);
+        }
+
+        if (remaining > 0) {
+            remaining = placeInEmptySlot(hotBar, type, remaining);
+        }
+        if (remaining > 0) {
+            remaining = placeInEmptySlot(inventory, type, remaining);
+        }
+
+        if (remaining < amount) {
+            EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
+            return true;
+        }
+        return false;
+    }
+
+    private int stackIntoContainer(ItemContainer container, TileType type, int remaining) {
+        for (int r = 0; r < container.getRows(); r++) {
+            for (int c = 0; c < container.getCols(); c++) {
+                Item slotItem = container.getItem(r, c);
+                if (slotItem != null && slotItem.getTileType() == type && slotItem.getQuantity() < MAX_STACK_SIZE) {
+                    int space = MAX_STACK_SIZE - slotItem.getQuantity();
+                    int toAdd = Math.min(space, remaining);
+                    slotItem.increaseQuantity(toAdd);
+                    remaining -= toAdd;
+                    if (remaining <= 0) {
+                        return 0;
+                    }
+                }
+            }
+        }
+        return remaining;
+    }
+
+    private int placeInEmptySlot(ItemContainer container, TileType type, int remaining) {
+        for (int r = 0; r < container.getRows(); r++) {
+            for (int c = 0; c < container.getCols(); c++) {
+                if (container.getItem(r, c) == null) {
+                    int toPlace = Math.min(MAX_STACK_SIZE, remaining);
+                    container.setItem(r, c, new Item(type, toPlace));
+                    remaining -= toPlace;
+                    if (remaining <= 0) {
+                        return 0;
+                    }
+                }
+            }
+        }
+        return remaining;
+    }
+
     private void move(double dx, double dy) {
         if (dx != 0 && !collidesAt(worldX + dx, worldY)) {
             worldX += dx;
         }
 
         isFalling = true;
+
         if (dy != 0 && !collidesAt(worldX, worldY + dy)) {
             worldY += dy;
         } else {
@@ -148,13 +222,6 @@ public class Player extends Entity {
         }
     }
 
-    public boolean isBackgroundMode() {
-        return KeyManager.isKeyPressed(KeyEvent.VK_SHIFT) || this.direction == Direction.UP;
-    }
-
-    /**
-     * Update the animation based on the current player's state
-     */
     private void updateAnimation() {
         boolean isMovingHorizontally = KeyManager.isKeyPressed(KeyEvent.VK_A) || KeyManager.isKeyPressed(KeyEvent.VK_D);
 
@@ -172,21 +239,16 @@ public class Player extends Entity {
         setAnimation();
     }
 
-    /**
-     * Define the correct animation on sprite, avoiding unnecessary reset
-     */
     private void setAnimation() {
         String key = state.name() + "_" + direction.name();
         Sprite newAnimation = animations.get(key);
+
         if (sprite != newAnimation) {
             sprite = newAnimation;
             sprite.reset();
         }
     }
 
-    /**
-     * Verify if the entity will collide on a solid block in a future position
-     */
     private boolean collidesAt(double testX, double testY) {
         int tileSize = EnginePanel.tileSquare;
 
@@ -198,7 +260,6 @@ public class Player extends Entity {
         for (int ty = (int) topTile; ty <= bottomTile; ty++) {
             for (int tx = (int) leftTile; tx <= rightTile; tx++) {
                 int cx = Math.floorDiv(tx, EnginePanel.CHUNK_WIDTH);
-
                 int col = Math.floorMod(tx, EnginePanel.CHUNK_WIDTH);
                 int row = Math.floorMod(ty, EnginePanel.CHUNK_HEIGHT);
 
@@ -208,6 +269,7 @@ public class Player extends Entity {
                 }
 
                 TileType tile = chunk.blocks[row][col];
+
                 if (tile != null && tile.isSolid()) {
                     return true;
                 }
@@ -221,11 +283,9 @@ public class Player extends Entity {
         animations.put("WALK_LEFT", new Sprite(Assets.playerWalkLeft, 12));
         animations.put("WALK_UP", new Sprite(Assets.playerWalkUp, 12));
         animations.put("WALK_DOWN", new Sprite(Assets.playerWalkDown, 12));
-
         animations.put("IDLE_RIGHT", new Sprite(Assets.playerIdleRight, 20));
         animations.put("IDLE_LEFT", new Sprite(Assets.playerIdleLeft, 20));
         animations.put("IDLE_UP", new Sprite(Assets.playerIdleUp, 20));
         animations.put("IDLE_DOWN", new Sprite(Assets.playerIdleDown, 20));
     }
-
 }

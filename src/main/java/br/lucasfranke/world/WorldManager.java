@@ -27,6 +27,14 @@ public class WorldManager {
     private double timeOfDay = 8.0;
     private static final double TIME_INCREMENT_PER_TICK = 24.0 / (60.0 * 120.0);
 
+    // Estado da mineração progressiva
+    private int miningTileX = -1;
+    private int miningTileY = -1;
+    private boolean miningBackground = false;
+    private int miningProgress = 0;
+    private int miningTargetHardness = 0;
+    private int breakCooldown = 0;
+
     static {
         for (int i = 0; i < 16; i++) {
             float opacity = 1.0f - (i / 15.0f);
@@ -66,6 +74,10 @@ public class WorldManager {
     public void update() {
         TileType.updateAnimations();
 
+        if (breakCooldown > 0) {
+            breakCooldown--;
+        }
+
         int tileSize = EnginePanel.tileSquare;
         int playerTileX = (int) EnginePanel.player.worldX / tileSize;
         int playerTileY = (int) EnginePanel.player.worldY / tileSize;
@@ -86,7 +98,15 @@ public class WorldManager {
         } else {
             hoveredTileWorldPosition[0] = -1;
             hoveredTileWorldPosition[1] = -1;
+            resetMining();
         }
+    }
+
+    public void resetMining() {
+        miningTileX = -1;
+        miningTileY = -1;
+        miningProgress = 0;
+        miningTargetHardness = 0;
     }
 
     private void updateDayNightCycle(int playerTileX) {
@@ -173,12 +193,8 @@ public class WorldManager {
 
                 TileType fgTile = chunk.blocks[tileYInChunk][tileXInChunk];
                 TileType bgTile = chunk.backgroundBlocks[tileYInChunk][tileXInChunk];
-                if (fgTile == null) {
-                    fgTile = TileType.AIR;
-                }
-                if (bgTile == null) {
-                    bgTile = TileType.AIR;
-                }
+                if (fgTile == null) fgTile = TileType.AIR;
+                if (bgTile == null) bgTile = TileType.AIR;
 
                 byte staticLightLevel = chunk.lightMap[tileYInChunk][tileXInChunk];
                 byte finalLightLevel = staticLightLevel;
@@ -198,7 +214,13 @@ public class WorldManager {
                 int screenY = (row * tileSize) - playerWorldY + playerScreenY;
 
                 if (fgTile == TileType.TORCH) {
-                    extractLight(g2, tileSize, bgTile, finalLightLevel, screenX, screenY);
+                    if (bgTile.getSprite() != null) {
+                        g2.drawImage(bgTile.getSprite(), screenX, screenY, tileSize, tileSize, null);
+                    }
+                    int bgShadow = (bgTile == TileType.AIR) ? world.getSunLightLevel() : finalLightLevel;
+                    bgShadow = Math.max(0, Math.min(15, bgShadow));
+                    g2.setColor(SHADOW_COLORS[bgShadow]);
+                    g2.fillRect(screenX, screenY, tileSize, tileSize);
 
                     BufferedImage torchSprite = fgTile.getSprite();
                     if (torchSprite != null) {
@@ -209,14 +231,20 @@ public class WorldManager {
                 }
 
                 if (fgTile == TileType.AIR) {
-                    extractLight(g2, tileSize, bgTile, finalLightLevel, screenX, screenY);
+                    if (bgTile.getSprite() != null) {
+                        g2.drawImage(bgTile.getSprite(), screenX, screenY, tileSize, tileSize, null);
+                    }
+                    int shadowIndex = (bgTile == TileType.AIR) ? world.getSunLightLevel() : finalLightLevel;
+                    shadowIndex = Math.max(0, Math.min(15, shadowIndex));
+                    g2.setColor(SHADOW_COLORS[shadowIndex]);
+                    g2.fillRect(screenX, screenY, tileSize, tileSize);
                     continue;
                 }
 
                 if (fgTile.getSprite() != null) {
                     g2.drawImage(fgTile.getSprite(), screenX, screenY, tileSize, tileSize, null);
                 }
-                int shadowIndex = Math.clamp(finalLightLevel, 0, 15);
+                int shadowIndex = Math.max(0, Math.min(15, finalLightLevel));
                 g2.setColor(SHADOW_COLORS[shadowIndex]);
                 g2.fillRect(screenX, screenY, tileSize, tileSize);
             }
@@ -232,17 +260,73 @@ public class WorldManager {
                     ? MOUSE_HOVER_BACKGROUND_COLOR
                     : MOUSE_HOVER_FOREGROUND_COLOR);
             g2.fillRect(screenX, screenY, tileSize, tileSize);
+
+            if (miningProgress > 0 && miningTargetHardness > 1 && tileX == miningTileX && tileY == miningTileY) {
+                drawMiningOverlay(g2, screenX, screenY, tileSize);
+            }
         }
     }
 
-    private void extractLight(Graphics2D g2, int tileSize, TileType bgTile, byte finalLightLevel, int screenX, int screenY) {
-        if (bgTile.getSprite() != null) {
-            g2.drawImage(bgTile.getSprite(), screenX, screenY, tileSize, tileSize, null);
+    private void drawMiningOverlay(Graphics2D g2, int screenX, int screenY, int tileSize) {
+        float ratio = Math.min(1.0f, (float) miningProgress / miningTargetHardness);
+        int stage = (int) (ratio * 4);
+
+        int shakeX = 0;
+        int shakeY = 0;
+        if (miningProgress < miningTargetHardness) {
+            shakeX = (int) (Math.random() * 3) - 1;
+            shakeY = (int) (Math.random() * 3) - 1;
         }
-        int shadowIndex = (bgTile == TileType.AIR) ? world.getSunLightLevel() : finalLightLevel;
-        shadowIndex = Math.clamp(shadowIndex, 0, 15);
-        g2.setColor(SHADOW_COLORS[shadowIndex]);
-        g2.fillRect(screenX, screenY, tileSize, tileSize);
+
+        Graphics2D g2d = (Graphics2D) g2.create();
+        g2d.translate(shakeX, shakeY);
+        g2d.setColor(newColorWithAlpha(Color.BLACK, 200));
+        int cx = screenX + tileSize / 2;
+        int cy = screenY + tileSize / 2;
+
+        Stroke oldStroke = g2d.getStroke();
+        g2d.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+        if (stage >= 0) {
+            g2d.drawLine(cx, cy, cx - 6, cy - 8);
+            g2d.drawLine(cx, cy, cx + 8, cy + 6);
+        }
+        if (stage >= 1) {
+            g2d.drawLine(cx - 6, cy - 8, screenX + 8, screenY + 6);
+            g2d.drawLine(cx, cy, cx + 10, cy - 10);
+        }
+        if (stage >= 2) {
+            g2d.drawLine(cx + 8, cy + 6, screenX + tileSize - 8, screenY + tileSize - 8);
+            g2d.drawLine(cx, cy, cx - 10, cy + 10);
+        }
+        if (stage >= 3) {
+            g2d.drawLine(cx + 10, cy - 10, screenX + tileSize - 6, screenY + 8);
+            g2d.drawLine(cx - 10, cy + 10, screenX + 6, screenY + tileSize - 6);
+            g2d.drawLine(screenX + 8, cy, screenX + tileSize - 8, cy);
+        }
+
+        g2d.setStroke(oldStroke);
+
+        int barWidth = tileSize - 12;
+        int barHeight = 5;
+        int barX = screenX + 6;
+        int barY = screenY + tileSize - 9;
+
+        g2d.setColor(new Color(20, 20, 20, 220));
+        g2d.fillRect(barX, barY, barWidth, barHeight);
+        g2d.setColor(new Color(100, 100, 100, 200));
+        g2d.drawRect(barX, barY, barWidth, barHeight);
+
+        int filledWidth = (int) (barWidth * ratio);
+        Color barColor = ratio < 0.5f ? new Color(255, 220, 0) : (ratio < 0.8f ? new Color(255, 140, 0) : new Color(255, 50, 50));
+        g2d.setColor(barColor);
+        g2d.fillRect(barX + 1, barY + 1, filledWidth - 1, barHeight - 1);
+
+        g2d.dispose();
+    }
+
+    private Color newColorWithAlpha(Color color, int alpha) {
+        return new Color(color.getRed(), color.getGreen(), color.getBlue(), alpha);
     }
 
     private int getBottomTransparentOffset(BufferedImage sprite) {
@@ -274,11 +358,13 @@ public class WorldManager {
 
     public void handleBlockInteraction() {
         if (hoveredTileWorldPosition[0] == -1) {
+            resetMining();
             return;
         }
         int tileX = hoveredTileWorldPosition[0];
         int tileY = hoveredTileWorldPosition[1];
         if (tileY < 0 || tileY >= EnginePanel.CHUNK_HEIGHT) {
+            resetMining();
             return;
         }
 
@@ -292,48 +378,94 @@ public class WorldManager {
         boolean backgroundMode = EnginePanel.player.isBackgroundMode();
 
         if (MouseManager.isButtonPressed(MouseEvent.BUTTON1)) {
-            handleBreakClick(chunk, tileX, tileY, backgroundMode);
+            if (breakCooldown > 0) {
+                return;
+            }
+            if (handleBreakProgress(chunk, tileX, tileY, backgroundMode)) {
+                world.calculateLightForChunkAndNeighbors(xChunk);
+            }
         } else if (MouseManager.isButtonPressed(MouseEvent.BUTTON3)) {
-            if (handlePlaceClick(chunk, tileX, tileY, backgroundMode)) return;
+            if (!handlePlaceClick(chunk, tileX, tileY, backgroundMode)) {
+                world.calculateLightForChunkAndNeighbors(xChunk);
+            }
         }
-
-        world.calculateLightForChunkAndNeighbors(xChunk);
     }
 
-    private void handleBreakClick(Chunk chunk, int tileX, int tileY, boolean backgroundMode) {
-        int localX = Math.floorMod(tileX, EnginePanel.CHUNK_WIDTH);
-        int localY = Math.floorMod(tileY, EnginePanel.CHUNK_HEIGHT);
+    private boolean handleBreakProgress(Chunk chunk, int tileX, int tileY, boolean backgroundMode) {
+        TileType currentFg = chunk.getBlock(tileX, tileY);
+        boolean breakingForeground = (currentFg != null && currentFg != TileType.AIR && currentFg.isBreakable());
 
-        TileType currentFg = chunk.blocks[localY][localX];
+        TileType targetTile = null;
+        boolean targetIsBg = false;
 
-        if (currentFg != null && currentFg != TileType.AIR && currentFg.isBreakable()) {
-            switch (currentFg) {
-                case DIRT, GRASS, TORCH -> EnginePanel.soundManager.playSound(Sound.GRASS_BREAK);
-                case STONE -> EnginePanel.soundManager.playSound(Sound.STONE_BREAK);
+        if (breakingForeground) {
+            targetTile = currentFg;
+        } else if (backgroundMode) {
+            TileType currentBg = chunk.getBackgroundBlock(tileX, tileY);
+            TileType naturalBg = chunk.getOriginalBackgroundBlock(tileX, tileY);
+            if (currentBg != null && currentBg != TileType.AIR && currentBg != naturalBg) {
+                targetTile = currentBg;
+                targetIsBg = true;
             }
+        }
 
+        if (targetTile == null) {
+            resetMining();
+            return false;
+        }
+
+        if (tileX != miningTileX || tileY != miningTileY || targetIsBg != miningBackground) {
+            miningTileX = tileX;
+            miningTileY = tileY;
+            miningBackground = targetIsBg;
+            miningProgress = 0;
+            miningTargetHardness = Math.max(1, targetTile.getHardness());
+        }
+
+        miningProgress++;
+
+        if (miningProgress % 15 == 0 && miningProgress < miningTargetHardness) {
+            playBreakSound(targetTile);
+        }
+
+        if (miningProgress >= miningTargetHardness) {
+            executeBlockBreak(chunk, tileX, tileY, targetTile, targetIsBg);
+            resetMining();
+            breakCooldown = 6;
+            return true;
+        }
+        return false;
+    }
+
+    private void executeBlockBreak(Chunk chunk, int tileX, int tileY, TileType targetTile, boolean targetIsBg) {
+        playBreakSound(targetTile);
+
+        TileType drop = targetTile.getDropType();
+        if (drop != TileType.AIR) {
+            EnginePanel.player.addItem(drop, 1);
+        }
+
+        if (!targetIsBg) {
             chunk.setBlock(tileX, tileY, TileType.AIR);
 
             if (tileY > 0) {
-                TileType blockAbove = chunk.blocks[localY - 1][localX];
-                TileType bgAbove = chunk.backgroundBlocks[localY - 1][localX];
+                TileType blockAbove = chunk.getBlock(tileX - 1, tileY);
+                TileType bgAbove = chunk.getBackgroundBlock(tileX - 1, tileY);
                 if (blockAbove == TileType.TORCH && (bgAbove == null || bgAbove == TileType.AIR)) {
                     chunk.setBlock(tileX, tileY - 1, TileType.AIR);
+                    EnginePanel.player.addItem(TileType.TORCH, 1);
                 }
             }
-            return;
+        } else {
+            TileType naturalBg = chunk.getOriginalBackgroundBlock(tileX, tileY);
+            chunk.setBackgroundBlock(tileX, tileY, naturalBg != null ? naturalBg : TileType.AIR);
         }
+    }
 
-        if (backgroundMode) {
-            TileType currentBg = chunk.backgroundBlocks[localY][localX];
-            if (currentBg == null || currentBg == TileType.AIR) {
-                return;
-            }
-            switch (currentBg) {
-                case BACKGROUND_DIRT, BACKGROUND_GRASS -> EnginePanel.soundManager.playSound(Sound.GRASS_BREAK);
-                case BACKGROUND_STONE -> EnginePanel.soundManager.playSound(Sound.STONE_BREAK);
-            }
-            chunk.setBackgroundBlock(tileX, tileY, TileType.AIR);
+    private void playBreakSound(TileType tile) {
+        switch (tile) {
+            case DIRT, GRASS, BACKGROUND_DIRT, BACKGROUND_GRASS, TORCH -> EnginePanel.soundManager.playSound(Sound.GRASS_BREAK);
+            case STONE, BACKGROUND_STONE -> EnginePanel.soundManager.playSound(Sound.STONE_BREAK);
         }
     }
 
@@ -346,22 +478,28 @@ public class WorldManager {
             return true;
         }
 
-        TileType currentFg = chunk.getBlock(tileX, tileY);
-        TileType currentBg = chunk.getBackgroundBlock(tileX, tileY);
+        int localX = Math.floorMod(tileX, EnginePanel.CHUNK_WIDTH);
+        int localY = Math.floorMod(tileY, EnginePanel.CHUNK_HEIGHT);
+
+        TileType currentFg = chunk.blocks[localY][localX];
+        TileType currentBg = chunk.backgroundBlocks[localY][localX];
+        TileType naturalBg = chunk.originalBackgroundBlocks[localY][localX];
 
         if (currentFg != null && currentFg != TileType.AIR) {
             return true;
         }
 
         if (backgroundMode && tileToPlace != TileType.TORCH) {
-            if (currentBg == null || currentBg == TileType.AIR) {
-                TileType bgVariant = getBackgroundVariant(tileToPlace);
-                if (bgVariant == TileType.AIR) {
-                    return true;
+            TileType bgVariant = getBackgroundVariant(tileToPlace);
+            if (bgVariant != TileType.AIR) {
+                boolean isEmptySky = (currentBg == null || currentBg == TileType.AIR);
+                boolean isReplacingNaturalBg = (currentBg == naturalBg && currentBg != bgVariant);
+
+                if (isEmptySky || isReplacingNaturalBg) {
+                    chunk.setBackgroundBlock(tileX, tileY, bgVariant);
+                    consumeSelectedItem(selectedItem);
+                    return false;
                 }
-                chunk.setBackgroundBlock(tileX, tileY, bgVariant);
-                consumeSelectedItem(selectedItem);
-                return false;
             }
         }
 
