@@ -252,25 +252,14 @@ public class Player extends Entity {
     private boolean collidesAt(double testX, double testY) {
         int tileSize = EnginePanel.tileSquare;
 
-        double leftTile = testX / tileSize;
-        double rightTile = (testX + width - 1) / tileSize;
-        double topTile = testY / tileSize;
-        double bottomTile = (testY + height - 1) / tileSize;
+        int leftTile = (int) Math.floor(testX / tileSize);
+        int rightTile = (int) Math.floor((testX + width - 1) / tileSize);
+        int topTile = (int) Math.floor(testY / tileSize);
+        int bottomTile = (int) Math.floor((testY + height - 1) / tileSize);
 
-        for (int ty = (int) topTile; ty <= bottomTile; ty++) {
-            for (int tx = (int) leftTile; tx <= rightTile; tx++) {
-                int cx = Math.floorDiv(tx, EnginePanel.CHUNK_WIDTH);
-                int col = Math.floorMod(tx, EnginePanel.CHUNK_WIDTH);
-                int row = Math.floorMod(ty, EnginePanel.CHUNK_HEIGHT);
-
-                Chunk chunk = world.getChunk(cx);
-                if (chunk == null) {
-                    continue;
-                }
-
-                TileType tile = chunk.blocks[row][col];
-
-                if (tile != null && tile.isSolid()) {
+        for (int ty = topTile; ty <= bottomTile; ty++) {
+            for (int tx = leftTile; tx <= rightTile; tx++) {
+                if (world.isSolid(tx, ty)) {
                     return true;
                 }
             }

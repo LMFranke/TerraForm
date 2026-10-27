@@ -23,8 +23,8 @@ public class EnginePanel extends JPanel implements Runnable {
     public static final int CHUNK_HEIGHT = 256;
     public static final int CHUNK_WIDTH = 16;
 
-    public static final int maxScreenRow = 20;
-    public static final int maxScreenCol = 30;
+    public static final int maxScreenRow = 22;
+    public static final int maxScreenCol = 40;
 
     public static final int WIDTH = tileSquare * maxScreenCol;
     public static final int HEIGHT = tileSquare * maxScreenRow;

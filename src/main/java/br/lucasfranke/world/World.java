@@ -1,6 +1,7 @@
 package br.lucasfranke.world;
 
 import br.lucasfranke.EnginePanel;
+import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.type.TileType;
 
 import java.awt.*;
@@ -10,19 +11,102 @@ import java.util.Map;
 import java.util.Queue;
 
 public class World {
-    private final Map<String, Chunk> chunks = new HashMap<>();
+
+    private final Map<Integer, Chunk> chunks = new HashMap<>();
     private final long seed;
-    private final Noise1D terrainNoise;
-    private final Noise2D caveNoise;
+    private final WorldGenerator generator;
+
     public static final int MAX_LIGHT_LEVEL = 15;
     public static final int MIN_NIGHT_LIGHT_LEVEL = 2;
-
     private int sunLightLevel = MAX_LIGHT_LEVEL;
 
     public World(long seed) {
         this.seed = seed;
-        this.terrainNoise = new Noise1D(seed);
-        this.caveNoise = new Noise2D(seed);
+        this.generator = new WorldGenerator(seed);
+    }
+
+    public long getSeed() {
+        return seed;
+    }
+
+    public boolean isValidY(int tileY) {
+        return tileY >= EnginePanel.MIN_WORLD_HEIGHT && tileY < EnginePanel.CHUNK_HEIGHT;
+    }
+
+    public int toChunkX(int tileX) {
+        return Math.floorDiv(tileX, EnginePanel.CHUNK_WIDTH);
+    }
+
+    public Chunk getChunkByTileX(int tileX) {
+        return getChunk(toChunkX(tileX));
+    }
+
+    public TileType getBlock(int tileX, int tileY) {
+        if (!isValidY(tileY)) return TileType.AIR;
+        Chunk c = getChunkByTileX(tileX);
+        if (c == null) return TileType.AIR;
+        TileType t = c.getBlock(tileX, tileY);
+        return t != null ? t : TileType.AIR;
+    }
+
+    public void setBlock(int tileX, int tileY, TileType type) {
+        if (!isValidY(tileY)) return;
+        Chunk c = getChunkByTileX(tileX);
+        if (c != null) {
+            c.setBlock(tileX, tileY, type);
+        }
+    }
+
+    public TileType getBackgroundBlock(int tileX, int tileY) {
+        if (!isValidY(tileY)) return TileType.AIR;
+        Chunk c = getChunkByTileX(tileX);
+        if (c == null) return TileType.AIR;
+        TileType t = c.getBackgroundBlock(tileX, tileY);
+        return t != null ? t : TileType.AIR;
+    }
+
+    public TileType getNaturalBackgroundBlock(int tileX, int tileY) {
+        if (!isValidY(tileY)) return TileType.AIR;
+        Chunk c = getChunkByTileX(tileX);
+        if (c == null) return TileType.AIR;
+        int localX = Math.floorMod(tileX, EnginePanel.CHUNK_WIDTH);
+        TileType t = c.originalBackgroundBlocks[tileY][localX];
+        return t != null ? t : TileType.AIR;
+    }
+
+    public void setBackgroundBlock(int tileX, int tileY, TileType type) {
+        if (!isValidY(tileY)) return;
+        Chunk c = getChunkByTileX(tileX);
+        if (c != null) {
+            c.setBackgroundBlock(tileX, tileY, type);
+        }
+    }
+
+    public FunctionalBlock getFunctionalBlock(int tileX, int tileY) {
+        if (!isValidY(tileY)) return null;
+        Chunk c = getChunkByTileX(tileX);
+        return c != null ? c.getFunctionalBlock(tileX, tileY) : null;
+    }
+
+    public byte getStaticLight(int tileX, int tileY) {
+        if (!isValidY(tileY)) return (byte) sunLightLevel;
+        Chunk c = getChunkByTileX(tileX);
+        if (c == null) return 0;
+        int localX = Math.floorMod(tileX, EnginePanel.CHUNK_WIDTH);
+        return c.lightMap[tileY][localX];
+    }
+
+    public boolean isSolid(int tileX, int tileY) {
+        return getBlock(tileX, tileY).isSolid();
+    }
+
+    public void updateActiveFunctionalBlocks(int centerChunkX, int radius) {
+        for (int cx = centerChunkX - radius; cx <= centerChunkX + radius; cx++) {
+            Chunk c = chunks.get(cx);
+            if (c != null) {
+                c.updateFunctionalBlocks();
+            }
+        }
     }
 
     public int getSunLightLevel() {
@@ -34,7 +118,7 @@ public class World {
         if (this.sunLightLevel != clamped) {
             this.sunLightLevel = clamped;
             for (int cx = centerChunkX - 2; cx <= centerChunkX + 2; cx++) {
-                if (chunks.containsKey(cx + "")) {
+                if (chunks.containsKey(cx)) {
                     calculateLightForChunk(cx);
                 }
             }
@@ -42,108 +126,43 @@ public class World {
     }
 
     public Chunk getChunk(int cx) {
-        String key = cx + "";
-        if (!chunks.containsKey(key)) {
-            Chunk c = generateChunk(cx);
-            chunks.put(key, c);
+        Chunk c = chunks.get(cx);
+        if (c == null) {
+            c = generator.generateChunk(cx);
+            chunks.put(cx, c);
             calculateLightForChunk(cx);
-            if (chunks.containsKey((cx - 1) + "")) {
+            if (chunks.containsKey(cx - 1)) {
                 calculateLightForChunk(cx - 1);
             }
-            if (chunks.containsKey((cx + 1) + "")) {
+            if (chunks.containsKey(cx + 1)) {
                 calculateLightForChunk(cx + 1);
             }
-        } else {
-            Chunk c = chunks.get(key);
-            if (c.lastSunLightLevel != this.sunLightLevel) {
-                calculateLightForChunk(cx);
-            }
+        } else if (c.lastSunLightLevel != this.sunLightLevel) {
+            calculateLightForChunk(cx);
         }
-        return chunks.get(key);
-    }
-
-    private Chunk generateChunk(int cx) {
-        TileType[][] blocks = new TileType[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
-        TileType[][] backgroundBlocks = new TileType[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
-        int worldXStart = cx * EnginePanel.CHUNK_WIDTH;
-        int worldYStart = 10;
-
-        for (int row = EnginePanel.MAX_WORLD_HEIGHT - 1; row >= EnginePanel.MIN_WORLD_HEIGHT; row--) {
-            for (int col = 0; col < EnginePanel.CHUNK_WIDTH; col++) {
-                int worldX = worldXStart + col;
-                int worldY = worldYStart + row;
-
-                int groundHeight = (int) (terrainNoise.sample(worldX * 0.05) * 15 + 40);
-                int stoneHeight = groundHeight + 5;
-                stoneHeight += (int) (terrainNoise.sample(worldX * 0.1) * 3);
-
-                if (worldY > groundHeight && worldY <= stoneHeight) {
-                    blocks[row][col] = TileType.DIRT;
-                    backgroundBlocks[row][col] = TileType.BACKGROUND_DIRT;
-                } else if (worldY > stoneHeight) {
-                    blocks[row][col] = TileType.STONE;
-                    backgroundBlocks[row][col] = TileType.BACKGROUND_STONE;
-                } else if (worldY == groundHeight) {
-                    blocks[row][col] = TileType.GRASS;
-                    backgroundBlocks[row][col] = TileType.BACKGROUND_GRASS;
-                } else {
-                    blocks[row][col] = TileType.AIR;
-                    backgroundBlocks[row][col] = TileType.AIR;
-                }
-            }
-        }
-
-        for (int row = EnginePanel.MAX_WORLD_HEIGHT - 1; row >= EnginePanel.MIN_WORLD_HEIGHT; row--) {
-            for (int col = 0; col < EnginePanel.CHUNK_WIDTH; col++) {
-                int worldX = worldXStart + col;
-                int worldY = worldYStart + row;
-
-                if (blocks[row][col] == TileType.STONE) {
-                    double caveValue = caveNoise.sample(worldX * 0.1, worldY * 0.1);
-                    if (caveValue > 0.55) {
-                        blocks[row][col] = TileType.AIR;
-                    }
-                }
-            }
-        }
-
-        TileType[][] newBlocks = new TileType[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
-        for (int row = EnginePanel.MAX_WORLD_HEIGHT - 1; row >= EnginePanel.MIN_WORLD_HEIGHT; row--) {
-            for (int col = 0; col < EnginePanel.CHUNK_WIDTH; col++) {
-                int neighbors = countStoneNeighbors(blocks, row, col);
-                if (blocks[row][col] == TileType.AIR && backgroundBlocks[row][col] == TileType.BACKGROUND_STONE) {
-                    newBlocks[row][col] = (neighbors > 5) ? TileType.STONE : TileType.AIR;
-                } else if (blocks[row][col] == TileType.STONE) {
-                    newBlocks[row][col] = (neighbors < 4) ? TileType.AIR : TileType.STONE;
-                } else {
-                    newBlocks[row][col] = blocks[row][col];
-                }
-            }
-        }
-
-        return new Chunk(cx, newBlocks, backgroundBlocks);
+        return c;
     }
 
     public void calculateLightForChunkAndNeighbors(int cx) {
         calculateLightForChunk(cx);
-        if (chunks.containsKey((cx + 1) + "")) {
+        if (chunks.containsKey(cx + 1)) {
             calculateLightForChunk(cx + 1);
         }
-        if (chunks.containsKey((cx - 1) + "")) {
+        if (chunks.containsKey(cx - 1)) {
             calculateLightForChunk(cx - 1);
         }
     }
 
     public void calculateLightForChunk(int cx) {
-        Chunk mainChunk = chunks.get(cx + "");
-        if (mainChunk == null) {
-            return;
-        }
-        Chunk leftChunk = chunks.get((cx - 1) + "");
-        Chunk rightChunk = chunks.get((cx + 1) + "");
+        Chunk mainChunk = chunks.get(cx);
+        if (mainChunk == null) return;
+
+        Chunk leftChunk = chunks.get(cx - 1);
+        Chunk rightChunk = chunks.get(cx + 1);
 
         int cw = EnginePanel.CHUNK_WIDTH;
         int regionWidth = cw * 3;
+
         TileType[][] blockRegion = new TileType[EnginePanel.CHUNK_HEIGHT][regionWidth];
         byte[][] lightRegion = new byte[EnginePanel.CHUNK_HEIGHT][regionWidth];
 
@@ -156,11 +175,15 @@ public class World {
         }
 
         for (int col = 0; col < regionWidth; col++) {
+            int currentSunLight = sunLightLevel;
             for (int row = 0; row < EnginePanel.CHUNK_HEIGHT; row++) {
                 TileType tile = blockRegion[row][col];
                 if (tile != null && !tile.isSolid()) {
-                    if (lightRegion[row][col] < sunLightLevel) {
-                        lightRegion[row][col] = (byte) sunLightLevel;
+                    if (tile == TileType.LEAVES) {
+                        currentSunLight = Math.max(MIN_NIGHT_LIGHT_LEVEL, currentSunLight - 1);
+                    }
+                    if (lightRegion[row][col] < currentSunLight) {
+                        lightRegion[row][col] = (byte) currentSunLight;
                     }
                 } else {
                     break;
@@ -194,7 +217,6 @@ public class World {
     private void propagateLight(TileType[][] blocks, byte[][] lightMap, Queue<Point> queue) {
         int width = blocks[0].length;
         int height = blocks.length;
-
         int[] dx = {0, 0, 1, -1};
         int[] dy = {1, -1, 0, 0};
 
@@ -202,12 +224,9 @@ public class World {
             Point p = queue.poll();
             int x = p.x;
             int y = p.y;
-            int currentLightLevel = lightMap[y][x];
-            int nextLightLevel = currentLightLevel - 1;
+            int nextLightLevel = lightMap[y][x] - 1;
 
-            if (nextLightLevel <= 0) {
-                continue;
-            }
+            if (nextLightLevel <= 0) continue;
 
             for (int i = 0; i < 4; i++) {
                 int nx = x + dx[i];
@@ -228,27 +247,5 @@ public class World {
                 }
             }
         }
-    }
-
-    private int countStoneNeighbors(TileType[][] blocks, int row, int col) {
-        int count = 0;
-        for (int y = -1; y <= 1; y++) {
-            for (int x = -1; x <= 1; x++) {
-                if (x == 0 && y == 0) {
-                    continue;
-                }
-                int nx = col + x;
-                int ny = row + y;
-
-                if (nx >= 0 && nx < EnginePanel.CHUNK_WIDTH && ny >= 0 && ny < EnginePanel.CHUNK_HEIGHT) {
-                    if (blocks[ny][nx] == TileType.STONE) {
-                        count++;
-                    }
-                } else {
-                    count++;
-                }
-            }
-        }
-        return count;
     }
 }

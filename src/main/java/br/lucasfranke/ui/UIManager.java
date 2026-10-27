@@ -4,6 +4,7 @@ import br.lucasfranke.EnginePanel;
 import br.lucasfranke.inventory.Inventory;
 import br.lucasfranke.inventory.ItemContainer;
 import br.lucasfranke.listeners.MouseManager;
+import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
 
@@ -15,6 +16,7 @@ public class UIManager {
     private final HotBarUI hotBarUI;
     private final InventoryUI inventoryUI;
     private Inventory currentlyOpenInventory;
+    private FunctionalBlock currentlyOpenFunctionalBlock;
     private final Player player;
     private Item draggedItem;
 
@@ -22,15 +24,24 @@ public class UIManager {
         this.player = player;
         this.hotBarUI = new HotBarUI();
         this.inventoryUI = new InventoryUI();
-        this.currentlyOpenInventory = null;
     }
 
     public void toggleInventory(Inventory inventoryToOpen) {
-        if (currentlyOpenInventory == inventoryToOpen) {
+        if (isInventoryOpen()) {
             closeInventory();
         } else {
-            currentlyOpenInventory = inventoryToOpen;
+            this.currentlyOpenInventory = inventoryToOpen;
+            this.currentlyOpenFunctionalBlock = null;
         }
+    }
+
+    public void openFunctionalBlock(FunctionalBlock block) {
+        this.currentlyOpenFunctionalBlock = block;
+        this.currentlyOpenInventory = player.inventory;
+    }
+
+    public FunctionalBlock getCurrentlyOpenFunctionalBlock() {
+        return currentlyOpenFunctionalBlock;
     }
 
     public void closeInventory() {
@@ -39,15 +50,16 @@ public class UIManager {
             draggedItem = null;
         }
         currentlyOpenInventory = null;
+        currentlyOpenFunctionalBlock = null;
     }
 
     public boolean isInventoryOpen() {
-        return currentlyOpenInventory != null;
+        return currentlyOpenInventory != null || currentlyOpenFunctionalBlock != null;
     }
 
     public void draw(Graphics2D g2, int panelWidth, int panelHeight) {
-        if (currentlyOpenInventory != null) {
-            inventoryUI.draw(g2, currentlyOpenInventory, panelWidth, panelHeight);
+        if (isInventoryOpen()) {
+            inventoryUI.draw(g2, currentlyOpenInventory, currentlyOpenFunctionalBlock, panelWidth, panelHeight);
         }
         hotBarUI.draw(g2, player.hotBar);
 
@@ -62,7 +74,22 @@ public class UIManager {
             return;
         }
 
+        if (currentlyOpenFunctionalBlock != null) {
+            int playerTileX = (int) (player.worldX / EnginePanel.tileSquare);
+            int playerTileY = (int) (player.worldY / EnginePanel.tileSquare);
+            int dist = Math.abs(currentlyOpenFunctionalBlock.getWorldX() - playerTileX)
+                    + Math.abs(currentlyOpenFunctionalBlock.getWorldY() - playerTileY);
+            if (dist >= 5) {
+                closeInventory();
+                return;
+            }
+        }
+
         if (MouseManager.isButtonPressed(MouseEvent.BUTTON1)) {
+            if (currentlyOpenFunctionalBlock != null && handleFunctionalExtraClick()) {
+                MouseManager.unpressButton(MouseEvent.BUTTON1);
+                return;
+            }
             if (draggedItem == null) {
                 handleLeftPickUp();
             } else {
@@ -79,28 +106,55 @@ public class UIManager {
         }
     }
 
+    private boolean handleFunctionalExtraClick() {
+        Inventory blockInv = currentlyOpenFunctionalBlock.getBlockInventory();
+        Point start = InventoryUI.getFunctionalBlockStart(blockInv);
+        int panelW = blockInv.getCols() * blockInv.getSlotSize() + 20;
+        int panelH = blockInv.getRows() * blockInv.getSlotSize() + 28;
+        return currentlyOpenFunctionalBlock.handleExtraUIClick(
+                MouseManager.getX(), MouseManager.getY(), player,
+                start.x - 10, start.y - 10, panelW, panelH
+        );
+    }
+
     private Object[] findClickedSlot() {
-        Point location = getSlotAtInventory();
-        if (location != null) {
-            return new Object[]{location, currentlyOpenInventory};
+        if (currentlyOpenFunctionalBlock != null) {
+            Inventory blockInv = currentlyOpenFunctionalBlock.getBlockInventory();
+            Point blockStart = InventoryUI.getFunctionalBlockStart(blockInv);
+            Point loc = getPointAtContainer(blockInv, blockStart.x, blockStart.y);
+            if (loc != null) {
+                return new Object[]{loc, blockInv};
+            }
         }
 
-        location = getSlotAtHotbar();
-        if (location != null) {
-            return new Object[]{location, player.hotBar};
+        if (currentlyOpenInventory != null) {
+            Point invStart = InventoryUI.getPlayerInventoryStart(currentlyOpenInventory, currentlyOpenFunctionalBlock != null);
+            Point loc = getPointAtContainer(currentlyOpenInventory, invStart.x, invStart.y);
+            if (loc != null) {
+                return new Object[]{loc, currentlyOpenInventory};
+            }
+        }
+
+        Point hotbarLoc = getSlotAtHotbar();
+        if (hotbarLoc != null) {
+            return new Object[]{hotbarLoc, player.hotBar};
         }
         return null;
     }
 
     private void handleLeftPickUp() {
         Object[] slotInfo = findClickedSlot();
-        if (slotInfo == null) return;
+        if (slotInfo == null) {
+            return;
+        }
 
         Point loc = (Point) slotInfo[0];
         ItemContainer container = (ItemContainer) slotInfo[1];
 
         Item itemToDrag = container.getItem(loc.y, loc.x);
-        if (itemToDrag == null) return;
+        if (itemToDrag == null) {
+            return;
+        }
 
         draggedItem = itemToDrag;
         container.setItem(loc.y, loc.x, null);
@@ -108,7 +162,9 @@ public class UIManager {
 
     private void handleLeftDrop() {
         Object[] slotInfo = findClickedSlot();
-        if (slotInfo == null) return;
+        if (slotInfo == null) {
+            return;
+        }
 
         Point loc = (Point) slotInfo[0];
         ItemContainer container = (ItemContainer) slotInfo[1];
@@ -134,13 +190,17 @@ public class UIManager {
 
     private void handleRightPickUpHalf() {
         Object[] slotInfo = findClickedSlot();
-        if (slotInfo == null) return;
+        if (slotInfo == null) {
+            return;
+        }
 
         Point loc = (Point) slotInfo[0];
         ItemContainer container = (ItemContainer) slotInfo[1];
 
         Item slotItem = container.getItem(loc.y, loc.x);
-        if (slotItem == null) return;
+        if (slotItem == null) {
+            return;
+        }
 
         int half = (slotItem.getQuantity() + 1) / 2;
         int remaining = slotItem.getQuantity() - half;
@@ -177,33 +237,21 @@ public class UIManager {
         }
     }
 
-    private Point getSlotAtInventory() {
-        if (currentlyOpenInventory == null) {
-            return null;
-        }
-        int mouseX = MouseManager.getX();
-        int mouseY = MouseManager.getY();
-        int slotSize = currentlyOpenInventory.getSlotSize();
-
-        int inventoryStartX = (EnginePanel.WIDTH - currentlyOpenInventory.getCols() * slotSize) / 2;
-        int inventoryStartY = (EnginePanel.HEIGHT - currentlyOpenInventory.getRows() * slotSize) / 2;
-        int inventoryEndX = inventoryStartX + slotSize * currentlyOpenInventory.getCols();
-        int inventoryEndY = inventoryStartY + slotSize * currentlyOpenInventory.getRows();
-
-        return getPointAtSlots(mouseX, mouseY, slotSize, inventoryStartX, inventoryStartY, inventoryEndX, inventoryEndY);
+    private Point getPointAtContainer(Inventory inv, int startX, int startY) {
+        int slotSize = inv.getSlotSize();
+        int endX = startX + slotSize * inv.getCols();
+        int endY = startY + slotSize * inv.getRows();
+        return getPointAtSlots(MouseManager.getX(), MouseManager.getY(), slotSize, startX, startY, endX, endY);
     }
 
     private Point getSlotAtHotbar() {
-        int mouseX = MouseManager.getX();
-        int mouseY = MouseManager.getY();
         int slotSize = EnginePanel.tileSquare;
-
         int hotbarStartX = (EnginePanel.WIDTH - player.hotBar.getCols() * slotSize) / 2;
         int hotbarStartY = (int) ((EnginePanel.HEIGHT - player.hotBar.getRows() * slotSize) * 0.95);
         int hotbarEndX = hotbarStartX + slotSize * player.hotBar.getCols();
         int hotbarEndY = hotbarStartY + slotSize * player.hotBar.getRows();
 
-        return getPointAtSlots(mouseX, mouseY, slotSize, hotbarStartX, hotbarStartY, hotbarEndX, hotbarEndY);
+        return getPointAtSlots(MouseManager.getX(), MouseManager.getY(), slotSize, hotbarStartX, hotbarStartY, hotbarEndX, hotbarEndY);
     }
 
     private Point getPointAtSlots(int mouseX, int mouseY, int slotSize, int startX, int startY, int endX, int endY) {

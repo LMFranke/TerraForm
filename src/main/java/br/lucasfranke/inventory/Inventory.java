@@ -22,6 +22,17 @@ public class Inventory implements ItemContainer {
         slots[4][0] = new Item(TileType.STONE, 48);
     }
 
+    public Inventory(int rows, int cols, boolean empty) {
+        this.rows = rows;
+        this.cols = cols;
+        this.slots = new Item[rows][cols];
+        if (!empty) {
+            slots[0][0] = new Item(TileType.GRASS, 64);
+            slots[3][5] = new Item(TileType.STONE, 48);
+            slots[4][0] = new Item(TileType.STONE, 48);
+        }
+    }
+
     public Inventory(int rows, int cols, int slotSize) {
         this.slotSize = slotSize;
         this.rows = rows;
@@ -34,25 +45,6 @@ public class Inventory implements ItemContainer {
     }
 
     public void update() {
-
-//        if (!EnginePanel.uiManager.isInventoryOpen()) {
-//            return;
-//        }
-//
-//        int x = MouseManager.getX();
-//        int y = MouseManager.getY();
-//
-//        int row = (y - inventoryUI.getStartY()) / slotSize;
-//        int col = (x - inventoryUI.getStartX()) / slotSize;
-//
-//        if (row < 0 || col < 0 || row >= rows || col >= cols || x < getInventoryUI().getStartX() || y < getInventoryUI().getStartY()) {
-//            return;
-//        }
-//
-//        Item selectedItem = slots[row][col];
-//        if (selectedItem != null) {
-//            selectedItem.setQuantity(selectedItem.getQuantity() + 1);
-//        }
 
     }
 

@@ -1,7 +1,12 @@
 package br.lucasfranke.world;
 
 import br.lucasfranke.EnginePanel;
+import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.type.TileType;
+
+import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Chunk {
     public final int cx;
@@ -10,6 +15,8 @@ public class Chunk {
     public final TileType[][] originalBackgroundBlocks;
     public byte[][] lightMap;
     public int lastSunLightLevel = -1;
+
+    private final Map<Point, FunctionalBlock> functionalBlocks = new HashMap<>();
 
     public Chunk(int cx, TileType[][] blocks, TileType[][] backgroundBlocks) {
         this.cx = cx;
@@ -30,12 +37,31 @@ public class Chunk {
         int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
         int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
         blocks[localY][localX] = type;
+
+        Point key = new Point(localX, localY);
+        if (type.isFunctional()) {
+            functionalBlocks.put(key, FunctionalBlock.create(type, worldX, worldY));
+        } else {
+            functionalBlocks.remove(key);
+        }
     }
 
     public TileType getBlock(int worldX, int worldY) {
         int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
         int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
         return blocks[localY][localX];
+    }
+
+    public FunctionalBlock getFunctionalBlock(int worldX, int worldY) {
+        int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
+        int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
+        return functionalBlocks.get(new Point(localX, localY));
+    }
+
+    public void updateFunctionalBlocks() {
+        for (FunctionalBlock fb : functionalBlocks.values()) {
+            fb.update();
+        }
     }
 
     public void setBackgroundBlock(int worldX, int worldY, TileType type) {

@@ -19,8 +19,11 @@ public class HotBar implements ItemContainer {
 
     public HotBar() {
         slots = new Item[rows][cols];
-        slots[0][0] = new Item( br.lucasfranke.model.type.TileType.TORCH, 64);
-        slots[0][1] = new Item( br.lucasfranke.model.type.TileType.STONE, 64);
+        slots[0][0] = new Item(br.lucasfranke.model.type.TileType.TORCH, 64);
+        slots[0][1] = new Item(br.lucasfranke.model.type.TileType.STONE, 64);
+        slots[0][2] = new Item(br.lucasfranke.model.type.TileType.CHEST, 10);
+        slots[0][3] = new Item(br.lucasfranke.model.type.TileType.FURNACE, 10);
+        slots[0][4] = new Item(br.lucasfranke.model.type.TileType.CRAFTING_TABLE, 10);
     }
 
     @Override

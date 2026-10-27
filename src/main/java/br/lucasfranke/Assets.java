@@ -7,45 +7,86 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.function.Supplier;
 
 public class Assets {
+
+    public static BufferedImage genericTileSprite;
 
     public static BufferedImage[] playerWalkRight;
     public static BufferedImage[] playerWalkLeft;
     public static BufferedImage[] playerWalkUp;
     public static BufferedImage[] playerWalkDown;
+
     public static BufferedImage[] playerIdleRight;
     public static BufferedImage[] playerIdleLeft;
     public static BufferedImage[] playerIdleUp;
     public static BufferedImage[] playerIdleDown;
 
-    public static void init() throws Exception {
+    public static void init() {
+        int size = EnginePanel.tileOriginalSquare;
+        genericTileSprite = createGenericTexture(size, size);
+
+        BufferedImage stoneSprite = load("src/main/resources/image/tiles/stoneTile.png");
         TileType.GRASS.setSprite(load("src/main/resources/image/tiles/grassTile.png"));
         TileType.DIRT.setSprite(load("src/main/resources/image/tiles/dirtTile.png"));
-        TileType.STONE.setSprite(load("src/main/resources/image/tiles/stoneTile.png"));
+        TileType.STONE.setSprite(stoneSprite);
         TileType.AIR.setSprite(load("src/main/resources/image/tiles/skyTile.png"));
+
         TileType.BACKGROUND_DIRT.setSprite(load("src/main/resources/image/tiles/backgroundDirtTile.png"));
         TileType.BACKGROUND_GRASS.setSprite(load("src/main/resources/image/tiles/backgroundGrassTile.png"));
         TileType.BACKGROUND_STONE.setSprite(load("src/main/resources/image/tiles/backgroundStoneTile.png"));
 
-        TileType.TORCH.setAnimation(
-                loadSpriteSheet("src/main/resources/image/tiles/torchTile.png", EnginePanel.tileOriginalSquare, EnginePanel.tileOriginalSquare),
-                10
-        );
+        TileType.LEAVES.setSprite(loadOrGenerate("src/main/resources/image/tiles/leavesTile.png", () -> createLeavesTexture(size, size)));
+        TileType.WOOD.setSprite(loadOrGenerate("src/main/resources/image/tiles/oakLogTile.png", () -> createLogTexture(size, size)));
+        TileType.PLANKS.setSprite(loadOrGenerate("src/main/resources/image/tiles/oakPlanksTile.png", () -> createPlanksTexture(size, size, false)));
+        TileType.BACKGROUND_PLANKS.setSprite(loadOrGenerate("src/main/resources/image/tiles/backgroundPlanksTile.png", () -> createPlanksTexture(size, size, true)));
 
-        playerWalkRight = new BufferedImage[] { load("src/main/resources/image/player/boy_right_1.png"), load("src/main/resources/image/player/boy_right_2.png")};
-        playerWalkLeft  = new BufferedImage[] { load("src/main/resources/image/player/boy_left_1.png"), load("src/main/resources/image/player/boy_left_2.png")};
-        playerWalkUp = new BufferedImage[] { load("src/main/resources/image/player/boy_up_1.png"), load("src/main/resources/image/player/boy_up_2.png")};
-        playerWalkDown  = new BufferedImage[] { load("src/main/resources/image/player/boy_down_1.png"), load("src/main/resources/image/player/boy_down_2.png")};
+        // Ores
+        TileType.COAL_ORE.setSprite(loadOrGenerate("src/main/resources/image/tiles/coalOreTile.png", () -> createOreTexture(stoneSprite, new Color(25, 25, 30), new Color(55, 55, 65))));
+        TileType.IRON_ORE.setSprite(loadOrGenerate("src/main/resources/image/tiles/ironOreTile.png", () -> createOreTexture(stoneSprite, new Color(210, 175, 145), new Color(240, 210, 185))));
+        TileType.GOLD_ORE.setSprite(loadOrGenerate("src/main/resources/image/tiles/goldOreTile.png", () -> createOreTexture(stoneSprite, new Color(245, 200, 35), new Color(255, 240, 120))));
 
-        playerIdleDown = new BufferedImage[] {load("src/main/resources/image/player/boy_down_1_idle.png")};
-        playerIdleLeft = new BufferedImage[] {load("src/main/resources/image/player/boy_left_1_idle.png")};
-        playerIdleUp = new BufferedImage[] {load("src/main/resources/image/player/boy_up_1_idle.png")};
-        playerIdleRight = new BufferedImage[] {load("src/main/resources/image/player/boy_right_1_idle.png")};
+        // Material and refined items
+        TileType.COAL.setSprite(loadOrGenerate("src/main/resources/image/tiles/coal.png", () -> createCoalItemTexture(size, size)));
+        TileType.IRON_INGOT.setSprite(loadOrGenerate("src/main/resources/image/tiles/ironIngot.png", () -> createIngotTexture(size, size, new Color(200, 205, 215), new Color(240, 245, 255))));
+        TileType.GOLD_INGOT.setSprite(loadOrGenerate("src/main/resources/image/tiles/goldIngot.png", () -> createIngotTexture(size, size, new Color(235, 185, 30), new Color(255, 235, 110))));
+
+        TileType.TORCH.setAnimation(loadSpriteSheet("src/main/resources/image/tiles/torchTile.png", size, size), 10);
+        TileType.CHEST.setSprite(loadOrGenerate("src/main/resources/image/tiles/chestTile.png", () -> createChestTexture(size, size)));
+        TileType.FURNACE.setSprite(loadOrGenerate("src/main/resources/image/tiles/furnaceTile.png", () -> createFurnaceTexture(size, size)));
+        TileType.CRAFTING_TABLE.setSprite(loadOrGenerate("src/main/resources/image/tiles/craftingTableTile.png", () -> createCraftingTableTexture(size, size)));
+
+        playerWalkRight = new BufferedImage[]{load("src/main/resources/image/player/boy_right_1.png"), load("src/main/resources/image/player/boy_right_2.png")};
+        playerWalkLeft = new BufferedImage[]{load("src/main/resources/image/player/boy_left_1.png"), load("src/main/resources/image/player/boy_left_2.png")};
+        playerWalkUp = new BufferedImage[]{load("src/main/resources/image/player/boy_up_1.png"), load("src/main/resources/image/player/boy_up_2.png")};
+        playerWalkDown = new BufferedImage[]{load("src/main/resources/image/player/boy_down_1.png"), load("src/main/resources/image/player/boy_down_2.png")};
+
+        playerIdleDown = new BufferedImage[]{load("src/main/resources/image/player/boy_down_1_idle.png")};
+        playerIdleLeft = new BufferedImage[]{load("src/main/resources/image/player/boy_left_1_idle.png")};
+        playerIdleUp = new BufferedImage[]{load("src/main/resources/image/player/boy_up_1_idle.png")};
+        playerIdleRight = new BufferedImage[]{load("src/main/resources/image/player/boy_right_1_idle.png")};
     }
 
-    private static BufferedImage load(String filename) throws IOException {
-        return ImageIO.read(new File(filename));
+    private static BufferedImage loadOrGenerate(String filename, Supplier<BufferedImage> proceduralFallback) {
+        File file = new File(filename);
+        if (file.exists()) {
+            try {
+                BufferedImage img = ImageIO.read(file);
+                if (img != null) {
+                    return img;
+                }
+            } catch (IOException ignored) {
+            }
+        }
+        return proceduralFallback.get();
+    }
+
+    private static BufferedImage load(String filename) {
+        return loadOrGenerate(filename, () -> {
+            System.err.println("Spritesheet not found, using generic texture: " + filename);
+            return genericTileSprite;
+        });
     }
 
     private static BufferedImage[] loadSpriteSheet(String filename, int frameWidth, int frameHeight) {
@@ -53,34 +94,187 @@ public class Assets {
         if (file.exists()) {
             try {
                 BufferedImage sheet = ImageIO.read(file);
-                int cols = Math.max(1, sheet.getWidth() / frameWidth);
-                int rows = Math.max(1, sheet.getHeight() / frameHeight);
-                BufferedImage[] frames = new BufferedImage[cols * rows];
-
-                int index = 0;
-                for (int r = 0; r < rows; r++) {
-                    for (int c = 0; c < cols; c++) {
-                        frames[index++] = sheet.getSubimage(
-                                c * frameWidth,
-                                r * frameHeight,
-                                frameWidth,
-                                frameHeight
-                        );
+                if (sheet != null) {
+                    int cols = Math.max(1, sheet.getWidth() / frameWidth);
+                    int rows = Math.max(1, sheet.getHeight() / frameHeight);
+                    BufferedImage[] frames = new BufferedImage[cols * rows];
+                    int index = 0;
+                    for (int r = 0; r < rows; r++) {
+                        for (int c = 0; c < cols; c++) {
+                            frames[index++] = sheet.getSubimage(
+                                    c * frameWidth,
+                                    r * frameHeight,
+                                    frameWidth,
+                                    frameHeight
+                            );
+                        }
                     }
+                    return frames;
                 }
-                return frames;
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException ignored) {
             }
         }
+        System.err.println("Spritesheet not found, using generic texture: " + filename);
+        return new BufferedImage[]{genericTileSprite};
+    }
 
-        BufferedImage fallback = new BufferedImage(frameWidth, frameHeight, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = fallback.createGraphics();
-        g.setColor(new Color(120, 72, 32));
-        g.fillRect(7, 7, 2, 7);
-        g.setColor(new Color(255, 140, 0));
-        g.fillRect(6, 4, 4, 3);
+    private static BufferedImage createOreTexture(BufferedImage baseStone, Color primary, Color highlight) {
+        int w = baseStone.getWidth();
+        int h = baseStone.getHeight();
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.drawImage(baseStone, 0, 0, null);
+
+        int[][] spots = {{3, 3}, {4, 3}, {3, 4}, {10, 4}, {11, 5}, {5, 10}, {6, 10}, {5, 11}, {11, 11}, {12, 10}};
+        for (int i = 0; i < spots.length; i++) {
+            g.setColor((i % 3 == 0) ? highlight : primary);
+            g.fillRect(spots[i][0], spots[i][1], 2, 2);
+        }
         g.dispose();
-        return new BufferedImage[]{fallback};
+        return img;
+    }
+
+    private static BufferedImage createLogTexture(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        Color barkDark = new Color(92, 58, 30);
+        Color barkMid = new Color(118, 76, 40);
+        Color barkLight = new Color(138, 92, 50);
+
+        g.setColor(barkMid);
+        g.fillRect(2, 0, w - 4, h);
+        g.setColor(barkDark);
+        g.fillRect(2, 0, 2, h);
+        g.fillRect(w - 4, 0, 2, h);
+        g.fillRect(7, 0, 2, h);
+        g.setColor(barkLight);
+        g.fillRect(5, 2, 1, h - 4);
+        g.fillRect(10, 3, 1, h - 5);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createLeavesTexture(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        Color leafDark = new Color(34, 105, 42, 235);
+        Color leafMid = new Color(48, 138, 56, 240);
+        Color leafLight = new Color(72, 168, 76, 240);
+
+        g.setColor(leafMid);
+        g.fillRoundRect(1, 1, w - 2, h - 2, 4, 4);
+        for (int y = 2; y < h - 2; y += 3) {
+            for (int x = 2; x < w - 2; x += 3) {
+                g.setColor(((x + y) % 2 == 0) ? leafLight : leafDark);
+                g.fillRect(x, y, 2, 2);
+            }
+        }
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createPlanksTexture(int w, int h, boolean isBackground) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        Color base = isBackground ? new Color(115, 82, 48) : new Color(168, 122, 74);
+        Color border = isBackground ? new Color(78, 52, 28) : new Color(120, 84, 48);
+
+        g.setColor(base);
+        g.fillRect(0, 0, w, h);
+        g.setColor(border);
+        for (int y = 0; y < h; y += 4) {
+            g.drawLine(0, y, w, y);
+            int jointX = ((y / 4) % 2 == 0) ? 7 : 12;
+            g.drawLine(jointX, y, jointX, y + 3);
+        }
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createCoalItemTexture(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(new Color(30, 30, 35));
+        g.fillOval(3, 3, w - 6, h - 6);
+        g.setColor(new Color(70, 70, 80));
+        g.fillRect(5, 5, 3, 2);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createIngotTexture(int w, int h, Color base, Color shine) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(base.darker());
+        g.fillRoundRect(2, 5, w - 4, h - 9, 3, 3);
+        g.setColor(base);
+        g.fillRect(3, 6, w - 6, h - 11);
+        g.setColor(shine);
+        g.drawLine(4, 7, w - 5, 7);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createChestTexture(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(new Color(145, 90, 40));
+        g.fillRect(1, 2, w - 2, h - 3);
+        g.setColor(new Color(80, 45, 18));
+        g.drawRect(1, 2, w - 3, h - 4);
+        g.drawLine(1, 7, w - 2, 7);
+        g.setColor(new Color(235, 200, 50));
+        g.fillRect(7, 6, 2, 3);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createFurnaceTexture(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(new Color(105, 105, 110));
+        g.fillRect(1, 1, w - 2, h - 2);
+        g.setColor(new Color(55, 55, 60));
+        g.drawRect(1, 1, w - 3, h - 3);
+        g.setColor(new Color(30, 30, 35));
+        g.fillRect(4, 4, w - 8, 4);
+        g.setColor(new Color(255, 120, 20));
+        g.fillRect(4, 10, w - 8, 4);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createCraftingTableTexture(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(new Color(155, 110, 65));
+        g.fillRect(1, 4, w - 2, h - 5);
+        g.setColor(new Color(195, 140, 85));
+        g.fillRect(0, 1, w, 4);
+        g.setColor(new Color(95, 60, 30));
+        g.drawRect(0, 1, w - 1, 4);
+        g.drawRect(1, 5, w - 3, h - 6);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createGenericTexture(int width, int height) {
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        Color c1 = new Color(180, 0, 220);
+        Color c2 = new Color(35, 35, 35);
+        for (int y = 0; y < height; y += 4) {
+            for (int x = 0; x < width; x += 4) {
+                g.setColor(((x / 4 + y / 4) % 2 == 0) ? c1 : c2);
+                g.fillRect(x, y, 4, 4);
+            }
+        }
+        g.setColor(Color.BLACK);
+        g.drawRect(0, 0, width - 1, height - 1);
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("SansSerif", Font.BOLD, 11));
+        g.drawString("?", 5, 12);
+        g.dispose();
+        return img;
     }
 }
