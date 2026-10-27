@@ -62,10 +62,13 @@ public class WorldRenderer {
                 int screenY = (row * tileSize) - playerWorldY + playerScreenY;
 
                 if (!fgTile.isSolid()) {
-                    if (bgTile == TileType.AIR) {
+                    if (bgTile == TileType.AIR
+                            || bgTile == TileType.BACKGROUND_WOOD
+                            || bgTile == TileType.BACKGROUND_LEAVES) {
                         g2.setColor(SKY_COLOR);
                         g2.fillRect(screenX, screenY, tileSize, tileSize);
-                    } else if (bgTile.getSprite() != null) {
+                    }
+                    if (bgTile != TileType.AIR && bgTile.getSprite() != null) {
                         g2.drawImage(bgTile.getSprite(), screenX, screenY, tileSize, tileSize, null);
                     }
 

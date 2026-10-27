@@ -27,7 +27,6 @@ public class WorldGenerator {
     public Chunk generateChunk(int cx) {
         int height = EnginePanel.CHUNK_HEIGHT;
         int width = EnginePanel.CHUNK_WIDTH;
-
         TileType[][] blocks = new TileType[height][width];
         TileType[][] backgroundBlocks = new TileType[height][width];
         int[] surfaceRows = new int[width];
@@ -36,12 +35,13 @@ public class WorldGenerator {
         int worldXStart = cx * width;
 
         generateBaseTerrain(blocks, backgroundBlocks, surfaceRows, stoneStartRows, worldXStart);
-
         TileType[][] smoothedBlocks = carveCavesAndSmooth(blocks, backgroundBlocks, worldXStart);
         generateOres(smoothedBlocks, stoneStartRows, worldXStart);
-        generateSurfaceTrees(smoothedBlocks, surfaceRows, worldXStart);
 
-        return new Chunk(cx, smoothedBlocks, backgroundBlocks);
+        Chunk chunk = new Chunk(cx, smoothedBlocks, backgroundBlocks);
+        generateSurfaceTrees(chunk, surfaceRows, worldXStart);
+
+        return chunk;
     }
 
     private void generateBaseTerrain(TileType[][] blocks, TileType[][] backgroundBlocks,
@@ -143,7 +143,7 @@ public class WorldGenerator {
         }
     }
 
-    private void generateSurfaceTrees(TileType[][] blocks, int[] surfaceRows, int worldXStart) {
+    private void generateSurfaceTrees(Chunk chunk, int[] surfaceRows, int worldXStart) {
         int lastTreeCol = -MIN_TREE_SPACING;
 
         for (int col = 2; col < EnginePanel.CHUNK_WIDTH - 2; col++) {
@@ -156,31 +156,24 @@ public class WorldGenerator {
                 continue;
             }
 
-            if (blocks[groundRow][col] != TileType.GRASS) {
+            if (chunk.blocks[groundRow][col] != TileType.GRASS) {
                 continue;
             }
 
             int worldX = worldXStart + col;
             int hash = deterministicHash(worldX);
-
             if ((hash & 0xFF) < 56) {
                 int trunkHeight = 4 + (Math.abs(hash >> 8) % 3); // Height between 4 and 6 tiles
-                placeTree(blocks, col, groundRow - 1, trunkHeight);
+                placeTreeInBackground(chunk, col, groundRow - 1, trunkHeight);
                 lastTreeCol = col;
             }
         }
     }
 
-    private void placeTree(TileType[][] blocks, int centerCol, int baseRow, int trunkHeight) {
+    private void placeTreeInBackground(Chunk chunk, int centerCol, int baseRow, int trunkHeight) {
         int topRow = baseRow - trunkHeight + 1;
         if (topRow < 3) {
             return;
-        }
-
-        for (int r = baseRow; r >= topRow; r--) {
-            if (blocks[r][centerCol] == TileType.AIR) {
-                blocks[r][centerCol] = TileType.WOOD;
-            }
         }
 
         for (int dy = -2; dy <= 1; dy++) {
@@ -191,10 +184,19 @@ public class WorldGenerator {
             for (int dx = -radius; dx <= radius; dx++) {
                 int leafCol = centerCol + dx;
                 if (leafCol >= 0 && leafCol < EnginePanel.CHUNK_WIDTH) {
-                    if (blocks[leafRow][leafCol] == TileType.AIR) {
-                        blocks[leafRow][leafCol] = TileType.LEAVES;
+                    if (chunk.blocks[leafRow][leafCol] == TileType.AIR
+                            && chunk.backgroundBlocks[leafRow][leafCol] == TileType.AIR) {
+                        chunk.backgroundBlocks[leafRow][leafCol] = TileType.BACKGROUND_LEAVES;
+                        chunk.naturalTreeTiles[leafRow][leafCol] = true;
                     }
                 }
+            }
+        }
+
+        for (int r = baseRow; r >= topRow; r--) {
+            if (chunk.blocks[r][centerCol] == TileType.AIR) {
+                chunk.backgroundBlocks[r][centerCol] = TileType.BACKGROUND_WOOD;
+                chunk.naturalTreeTiles[r][centerCol] = true;
             }
         }
     }

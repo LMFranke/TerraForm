@@ -6,14 +6,21 @@ import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.TileType;
+import br.lucasfranke.model.type.ToolCategory;
+import br.lucasfranke.model.type.ToolTier;
 import br.lucasfranke.sound.Sound;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Set;
 
 public class BlockInteractionController {
 
     private static final int MAX_INTERACTION_DISTANCE = 5;
+    private static final int MAX_TREE_CANOPY_RADIUS = 3;
 
     private final World world;
     public final int[] hoveredTile = {-1, -1};
@@ -21,7 +28,8 @@ public class BlockInteractionController {
     private int miningTileX = -1;
     private int miningTileY = -1;
     private boolean miningBackground = false;
-    private int miningProgress = 0;
+    private float miningProgress = 0f;
+    private int miningTicks = 0;
     private int miningTargetHardness = 0;
     private int breakCooldown = 0;
 
@@ -40,12 +48,10 @@ public class BlockInteractionController {
 
         int mouseWorldX = (int) (player.worldX - player.playerX + MouseManager.getX());
         int mouseWorldY = (int) (player.worldY - player.playerY + MouseManager.getY());
-
         int tileX = Math.floorDiv(mouseWorldX, tileSize);
         int tileY = Math.floorDiv(mouseWorldY, tileSize);
 
         int distance = Math.abs(tileX - playerTileX) + Math.abs(tileY - playerTileY);
-
         if (distance < MAX_INTERACTION_DISTANCE && world.isValidY(tileY)) {
             hoveredTile[0] = tileX;
             hoveredTile[1] = tileY;
@@ -59,7 +65,8 @@ public class BlockInteractionController {
     public void resetMining() {
         miningTileX = -1;
         miningTileY = -1;
-        miningProgress = 0;
+        miningProgress = 0f;
+        miningTicks = 0;
         miningTargetHardness = 0;
     }
 
@@ -92,15 +99,16 @@ public class BlockInteractionController {
 
     private boolean handleBreakProgress(Player player, int tileX, int tileY, boolean backgroundMode) {
         TileType currentFg = world.getBlock(tileX, tileY);
+        TileType currentBg = world.getBackgroundBlock(tileX, tileY);
+        TileType naturalBg = world.getNaturalBackgroundBlock(tileX, tileY);
+
         TileType targetTile = null;
         boolean targetIsBg = false;
 
         if (currentFg != TileType.AIR && currentFg.isBreakable()) {
             targetTile = currentFg;
-        } else if (backgroundMode) {
-            TileType currentBg = world.getBackgroundBlock(tileX, tileY);
-            TileType naturalBg = world.getNaturalBackgroundBlock(tileX, tileY);
-            if (currentBg != TileType.AIR && currentBg != naturalBg) {
+        } else if (currentBg != TileType.AIR && currentBg != naturalBg && currentBg.isBreakable()) {
+            if (backgroundMode || world.isNaturalTreeTile(tileX, tileY)) {
                 targetTile = currentBg;
                 targetIsBg = true;
             }
@@ -115,13 +123,16 @@ public class BlockInteractionController {
             miningTileX = tileX;
             miningTileY = tileY;
             miningBackground = targetIsBg;
-            miningProgress = 0;
+            miningProgress = 0f;
+            miningTicks = 0;
             miningTargetHardness = Math.max(1, targetTile.getHardness());
         }
 
-        miningProgress++;
+        float speedMultiplier = calculateMiningSpeedMultiplier(player, targetTile);
+        miningProgress += speedMultiplier;
+        miningTicks++;
 
-        if (miningProgress % 15 == 0 && miningProgress < miningTargetHardness) {
+        if (miningTicks % 15 == 0 && miningProgress < miningTargetHardness) {
             playSound(targetTile);
         }
 
@@ -134,6 +145,32 @@ public class BlockInteractionController {
         return false;
     }
 
+    private float calculateMiningSpeedMultiplier(Player player, TileType targetTile) {
+        Item heldItem = player.hotBar.getCurrentItem();
+        ToolCategory preferredTool = targetTile.getPreferredTool();
+        ToolTier requiredTier = targetTile.getRequiredTier();
+
+        ToolCategory heldCategory = (heldItem != null && heldItem.isTool())
+                ? heldItem.getTileType().getToolCategory()
+                : ToolCategory.NONE;
+        ToolTier heldTier = (heldItem != null && heldItem.isTool())
+                ? heldItem.getTileType().getToolTier()
+                : ToolTier.NONE;
+
+        if (preferredTool != ToolCategory.NONE && heldCategory == preferredTool) {
+            if (heldTier.canHarvest(requiredTier)) {
+                return heldTier.getEfficiencyMultiplier();
+            }
+            return 0.65f;
+        }
+
+        if (requiredTier.getHarvestLevel() >= ToolTier.STONE.getHarvestLevel()) {
+            return 0.4f;
+        }
+
+        return 1.0f;
+    }
+
     private void executeBlockBreak(Player player, int tileX, int tileY, TileType targetTile, boolean targetIsBg) {
         playSound(targetTile);
 
@@ -142,46 +179,132 @@ public class BlockInteractionController {
             player.addItem(drop, 1);
         }
 
+        applyHeldToolDurabilityWear(player, targetTile);
+
         if (!targetIsBg) {
             FunctionalBlock fb = world.getFunctionalBlock(tileX, tileY);
             if (fb != null) {
                 fb.onBreak(player);
             }
-
             world.setBlock(tileX, tileY, TileType.AIR);
-
-            if (targetTile == TileType.WOOD) {
-                collapseTreeAbove(player, tileX, tileY - 1);
-            }
-
-            if (tileY > 0 && world.getBlock(tileX, tileY - 1) == TileType.TORCH
-                    && world.getBackgroundBlock(tileX, tileY - 1) == TileType.AIR) {
-                world.setBlock(tileX, tileY - 1, TileType.AIR);
-                player.addItem(TileType.TORCH, 1);
-            }
+            checkAndDropUnsupportedTorchesAround(player, tileX, tileY);
         } else {
+            boolean wasNaturalTreeTrunk = (targetTile == TileType.BACKGROUND_WOOD)
+                    && world.isNaturalTreeTile(tileX, tileY);
+
             world.setBackgroundBlock(tileX, tileY, world.getNaturalBackgroundBlock(tileX, tileY));
+            checkAndDropUnsupportedTorchesAround(player, tileX, tileY);
+
+            if (wasNaturalTreeTrunk) {
+                collapseNaturalTreeAbove(player, tileX, tileY);
+            }
         }
     }
 
-    private void collapseTreeAbove(Player player, int trunkX, int startY) {
-        int currentY = startY;
-        while (world.isValidY(currentY)) {
-            TileType above = world.getBlock(trunkX, currentY);
-            if (above != TileType.WOOD && above != TileType.LEAVES) {
-                break;
+    private void applyHeldToolDurabilityWear(Player player, TileType brokenTile) {
+        if (brokenTile.getHardness() <= 1) {
+            return;
+        }
+        Item heldItem = player.hotBar.getCurrentItem();
+        if (heldItem != null && heldItem.isTool()) {
+            boolean broke = heldItem.damage(1);
+            if (broke) {
+                player.hotBar.setItem(0, player.hotBar.getSelectedSlot(), null);
+                player.hotBar.setCurrentItem(null);
+            }
+        }
+    }
+
+    private void collapseNaturalTreeAbove(Player player, int trunkX, int cutY) {
+        int startY = cutY - 1;
+        if (!world.isValidY(startY) || !world.isNaturalTreeTile(trunkX, startY)) {
+            return;
+        }
+
+        Queue<Point> queue = new LinkedList<>();
+        Set<Point> visited = new HashSet<>();
+
+        Point root = new Point(trunkX, startY);
+        queue.add(root);
+        visited.add(root);
+
+        int[] dx = {0, 0, -1, 1, -1, 1};
+        int[] dy = {-1, 1, 0, 0, -1, -1};
+
+        while (!queue.isEmpty()) {
+            Point current = queue.poll();
+            int cx = current.x;
+            int cy = current.y;
+
+            TileType currentBg = world.getBackgroundBlock(cx, cy);
+            boolean isTrunk = (currentBg == TileType.BACKGROUND_WOOD);
+            boolean isLeaf = (currentBg == TileType.BACKGROUND_LEAVES);
+
+            if (!isTrunk && !isLeaf) {
+                continue;
             }
 
-            for (int dx = -2; dx <= 2; dx++) {
-                int lx = trunkX + dx;
-                TileType neighbor = world.getBlock(lx, currentY);
-                if (neighbor == TileType.WOOD || neighbor == TileType.LEAVES) {
-                    world.setBlock(lx, currentY, TileType.AIR);
-                    player.addItem(neighbor.getDropType(), 1);
+            world.setBackgroundBlock(cx, cy, world.getNaturalBackgroundBlock(cx, cy));
+            TileType drop = currentBg.getDropType();
+            if (drop != TileType.AIR) {
+                player.addItem(drop, 1);
+            }
+            checkAndDropUnsupportedTorchesAround(player, cx, cy);
+
+            for (int i = 0; i < dx.length; i++) {
+                int nx = cx + dx[i];
+                int ny = cy + dy[i];
+
+                if (!world.isValidY(ny) || ny > cutY) {
+                    continue;
+                }
+                if (Math.abs(nx - trunkX) > MAX_TREE_CANOPY_RADIUS) {
+                    continue;
+                }
+
+                Point next = new Point(nx, ny);
+                if (visited.contains(next) || !world.isNaturalTreeTile(nx, ny)) {
+                    continue;
+                }
+
+                TileType nextBg = world.getBackgroundBlock(nx, ny);
+                if (isTrunk) {
+                    boolean nextIsSameTrunk = (nextBg == TileType.BACKGROUND_WOOD && nx == trunkX);
+                    boolean nextIsLeaf = (nextBg == TileType.BACKGROUND_LEAVES);
+                    if (nextIsSameTrunk || nextIsLeaf) {
+                        visited.add(next);
+                        queue.add(next);
+                    }
+                } else if (nextBg == TileType.BACKGROUND_LEAVES) {
+                    visited.add(next);
+                    queue.add(next);
                 }
             }
-            currentY--;
         }
+    }
+
+    private void checkAndDropUnsupportedTorchesAround(Player player, int centerX, int centerY) {
+        int[][] offsets = {{0, 0}, {0, -1}, {-1, 0}, {1, 0}};
+        for (int[] offset : offsets) {
+            int tx = centerX + offset[0];
+            int ty = centerY + offset[1];
+            if (world.isValidY(ty) && world.getBlock(tx, ty) == TileType.TORCH) {
+                if (!hasTorchSupport(tx, ty)) {
+                    world.setBlock(tx, ty, TileType.AIR);
+                    player.addItem(TileType.TORCH, 1);
+                }
+            }
+        }
+    }
+
+    private boolean hasTorchSupport(int tileX, int tileY) {
+        if (world.getBackgroundBlock(tileX, tileY) != TileType.AIR) {
+            return true;
+        }
+        if (world.isSolid(tileX, tileY + 1)) {
+            return true;
+        }
+        return world.isSolid(tileX - 1, tileY) || world.isSolid(tileX + 1, tileY);
     }
 
     private boolean handlePlaceClick(Player player, int tileX, int tileY, boolean backgroundMode) {
@@ -191,7 +314,7 @@ public class BlockInteractionController {
         }
 
         TileType tileToPlace = selectedItem.getTileType();
-        if (!tileToPlace.isPlaceable() || world.getBlock(tileX, tileY) != TileType.AIR) {
+        if (!tileToPlace.isPlaceable()) {
             return false;
         }
 
@@ -209,12 +332,15 @@ public class BlockInteractionController {
                     return true;
                 }
             }
+            return false;
+        }
+
+        if (world.getBlock(tileX, tileY) != TileType.AIR) {
+            return false;
         }
 
         if (tileToPlace == TileType.TORCH) {
-            boolean hasBackgroundWall = (currentBg != TileType.AIR);
-            boolean hasSolidGroundBelow = world.isSolid(tileX, tileY + 1);
-            if (!hasBackgroundWall && !hasSolidGroundBelow) {
+            if (!hasTorchSupport(tileX, tileY)) {
                 return false;
             }
         }
@@ -254,6 +380,6 @@ public class BlockInteractionController {
     }
 
     public float getMiningRatio() {
-        return miningTargetHardness <= 0 ? 0f : Math.min(1.0f, (float) miningProgress / miningTargetHardness);
+        return miningTargetHardness <= 0 ? 0f : Math.min(1.0f, miningProgress / miningTargetHardness);
     }
 }

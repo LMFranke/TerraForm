@@ -248,4 +248,19 @@ public class World {
             }
         }
     }
+
+    public boolean isNaturalTreeTile(int tileX, int tileY) {
+        if (!isValidY(tileY)) return false;
+        Chunk c = getChunkByTileX(tileX);
+        return c != null && c.isNaturalTreeTile(tileX, tileY);
+    }
+
+    public void setNaturalTreeTile(int tileX, int tileY, boolean isNaturalTree) {
+        if (!isValidY(tileY)) return;
+        Chunk c = getChunkByTileX(tileX);
+        if (c != null) {
+            c.setNaturalTreeTile(tileX, tileY, isNaturalTree);
+        }
+    }
+
 }

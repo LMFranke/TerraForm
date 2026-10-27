@@ -18,6 +18,7 @@ public class UIManager {
     private Inventory currentlyOpenInventory;
     private FunctionalBlock currentlyOpenFunctionalBlock;
     private final Player player;
+
     private Item draggedItem;
 
     public UIManager(Player player) {
@@ -31,7 +32,7 @@ public class UIManager {
             closeInventory();
         } else {
             this.currentlyOpenInventory = inventoryToOpen;
-            this.currentlyOpenFunctionalBlock = null;
+            this.currentlyOpenFunctionalBlock = player.personalCrafting;
         }
     }
 
@@ -46,8 +47,12 @@ public class UIManager {
 
     public void closeInventory() {
         if (draggedItem != null) {
-            player.addItem(draggedItem.getTileType(), draggedItem.getQuantity());
+            player.addItem(draggedItem);
             draggedItem = null;
+        }
+
+        if (currentlyOpenFunctionalBlock != null && !currentlyOpenFunctionalBlock.isWorldBlock()) {
+            currentlyOpenFunctionalBlock.returnItemsToPlayer(player);
         }
         currentlyOpenInventory = null;
         currentlyOpenFunctionalBlock = null;
@@ -61,6 +66,7 @@ public class UIManager {
         if (isInventoryOpen()) {
             inventoryUI.draw(g2, currentlyOpenInventory, currentlyOpenFunctionalBlock, panelWidth, panelHeight);
         }
+
         hotBarUI.draw(g2, player.hotBar);
 
         if (draggedItem != null) {
@@ -74,7 +80,7 @@ public class UIManager {
             return;
         }
 
-        if (currentlyOpenFunctionalBlock != null) {
+        if (currentlyOpenFunctionalBlock != null && currentlyOpenFunctionalBlock.isWorldBlock()) {
             int playerTileX = (int) (player.worldX / EnginePanel.tileSquare);
             int playerTileY = (int) (player.worldY / EnginePanel.tileSquare);
             int dist = Math.abs(currentlyOpenFunctionalBlock.getWorldX() - playerTileX)
@@ -107,10 +113,10 @@ public class UIManager {
     }
 
     private boolean handleFunctionalExtraClick() {
-        Inventory blockInv = currentlyOpenFunctionalBlock.getBlockInventory();
-        Point start = InventoryUI.getFunctionalBlockStart(blockInv);
-        int panelW = blockInv.getCols() * blockInv.getSlotSize() + 20;
-        int panelH = blockInv.getRows() * blockInv.getSlotSize() + 28;
+        Dimension dim = currentlyOpenFunctionalBlock.getContentDimension();
+        Point start = InventoryUI.getFunctionalBlockStart(currentlyOpenFunctionalBlock);
+        int panelW = dim.width + 20;
+        int panelH = dim.height + 28;
         return currentlyOpenFunctionalBlock.handleExtraUIClick(
                 MouseManager.getX(), MouseManager.getY(), player,
                 start.x - 10, start.y - 10, panelW, panelH
@@ -119,14 +125,12 @@ public class UIManager {
 
     private Object[] findClickedSlot() {
         if (currentlyOpenFunctionalBlock != null) {
-            Inventory blockInv = currentlyOpenFunctionalBlock.getBlockInventory();
-            Point blockStart = InventoryUI.getFunctionalBlockStart(blockInv);
-            Point loc = getPointAtContainer(blockInv, blockStart.x, blockStart.y);
+            Point blockStart = InventoryUI.getFunctionalBlockStart(currentlyOpenFunctionalBlock);
+            Point loc = getPointAtFunctionalBlock(currentlyOpenFunctionalBlock, blockStart.x, blockStart.y);
             if (loc != null) {
-                return new Object[]{loc, blockInv};
+                return new Object[]{loc, currentlyOpenFunctionalBlock.getBlockInventory()};
             }
         }
-
         if (currentlyOpenInventory != null) {
             Point invStart = InventoryUI.getPlayerInventoryStart(currentlyOpenInventory, currentlyOpenFunctionalBlock != null);
             Point loc = getPointAtContainer(currentlyOpenInventory, invStart.x, invStart.y);
@@ -134,10 +138,23 @@ public class UIManager {
                 return new Object[]{loc, currentlyOpenInventory};
             }
         }
-
         Point hotbarLoc = getSlotAtHotbar();
         if (hotbarLoc != null) {
             return new Object[]{hotbarLoc, player.hotBar};
+        }
+        return null;
+    }
+
+    private Point getPointAtFunctionalBlock(FunctionalBlock fb, int startX, int startY) {
+        int mouseX = MouseManager.getX();
+        int mouseY = MouseManager.getY();
+        Inventory inv = fb.getBlockInventory();
+        for (int row = 0; row < inv.getRows(); row++) {
+            for (int col = 0; col < inv.getCols(); col++) {
+                if (fb.getSlotBounds(row, col, startX, startY).contains(mouseX, mouseY)) {
+                    return new Point(col, row);
+                }
+            }
         }
         return null;
     }
@@ -147,7 +164,6 @@ public class UIManager {
         if (slotInfo == null) {
             return;
         }
-
         Point loc = (Point) slotInfo[0];
         ItemContainer container = (ItemContainer) slotInfo[1];
 
@@ -155,7 +171,6 @@ public class UIManager {
         if (itemToDrag == null) {
             return;
         }
-
         draggedItem = itemToDrag;
         container.setItem(loc.y, loc.x, null);
     }
@@ -165,14 +180,14 @@ public class UIManager {
         if (slotInfo == null) {
             return;
         }
-
         Point loc = (Point) slotInfo[0];
         ItemContainer container = (ItemContainer) slotInfo[1];
 
         Item destItem = container.getItem(loc.y, loc.x);
+        int maxStack = destItem != null ? destItem.getMaxStackSize() : Player.MAX_STACK_SIZE;
 
-        if (destItem != null && destItem.getTileType() == draggedItem.getTileType()) {
-            int space = Player.MAX_STACK_SIZE - destItem.getQuantity();
+        if (destItem != null && destItem.getTileType() == draggedItem.getTileType() && maxStack > 1) {
+            int space = maxStack - destItem.getQuantity();
             if (space > 0) {
                 int toTransfer = Math.min(space, draggedItem.getQuantity());
                 destItem.increaseQuantity(toTransfer);
@@ -193,7 +208,6 @@ public class UIManager {
         if (slotInfo == null) {
             return;
         }
-
         Point loc = (Point) slotInfo[0];
         ItemContainer container = (ItemContainer) slotInfo[1];
 
@@ -205,7 +219,7 @@ public class UIManager {
         int half = (slotItem.getQuantity() + 1) / 2;
         int remaining = slotItem.getQuantity() - half;
 
-        draggedItem = new Item(slotItem.getTileType(), half);
+        draggedItem = slotItem.copyWithQuantity(half);
         if (remaining <= 0) {
             container.setItem(loc.y, loc.x, null);
         } else {
@@ -216,16 +230,14 @@ public class UIManager {
     private void handleRightPlaceOne() {
         Object[] slotInfo = findClickedSlot();
         if (slotInfo == null) return;
-
         Point loc = (Point) slotInfo[0];
         ItemContainer container = (ItemContainer) slotInfo[1];
 
         Item destItem = container.getItem(loc.y, loc.x);
-
         if (destItem == null) {
-            container.setItem(loc.y, loc.x, new Item(draggedItem.getTileType(), 1));
+            container.setItem(loc.y, loc.x, draggedItem.copyWithQuantity(1));
             draggedItem.decreaseQuantity();
-        } else if (destItem.getTileType() == draggedItem.getTileType() && destItem.getQuantity() < Player.MAX_STACK_SIZE) {
+        } else if (destItem.getTileType() == draggedItem.getTileType() && destItem.getQuantity() < destItem.getMaxStackSize()) {
             destItem.increaseQuantity();
             draggedItem.decreaseQuantity();
         } else {
@@ -250,7 +262,6 @@ public class UIManager {
         int hotbarStartY = (int) ((EnginePanel.HEIGHT - player.hotBar.getRows() * slotSize) * 0.95);
         int hotbarEndX = hotbarStartX + slotSize * player.hotBar.getCols();
         int hotbarEndY = hotbarStartY + slotSize * player.hotBar.getRows();
-
         return getPointAtSlots(MouseManager.getX(), MouseManager.getY(), slotSize, hotbarStartX, hotbarStartY, hotbarEndX, hotbarEndY);
     }
 

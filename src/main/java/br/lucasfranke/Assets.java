@@ -1,6 +1,8 @@
 package br.lucasfranke;
 
 import br.lucasfranke.model.type.TileType;
+import br.lucasfranke.model.type.ToolCategory;
+import br.lucasfranke.model.type.ToolTier;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -17,7 +19,6 @@ public class Assets {
     public static BufferedImage[] playerWalkLeft;
     public static BufferedImage[] playerWalkUp;
     public static BufferedImage[] playerWalkDown;
-
     public static BufferedImage[] playerIdleRight;
     public static BufferedImage[] playerIdleLeft;
     public static BufferedImage[] playerIdleUp;
@@ -28,6 +29,7 @@ public class Assets {
         genericTileSprite = createGenericTexture(size, size);
 
         BufferedImage stoneSprite = load("src/main/resources/image/tiles/stoneTile.png");
+
         TileType.GRASS.setSprite(load("src/main/resources/image/tiles/grassTile.png"));
         TileType.DIRT.setSprite(load("src/main/resources/image/tiles/dirtTile.png"));
         TileType.STONE.setSprite(stoneSprite);
@@ -37,9 +39,15 @@ public class Assets {
         TileType.BACKGROUND_GRASS.setSprite(load("src/main/resources/image/tiles/backgroundGrassTile.png"));
         TileType.BACKGROUND_STONE.setSprite(load("src/main/resources/image/tiles/backgroundStoneTile.png"));
 
-        TileType.LEAVES.setSprite(loadOrGenerate("src/main/resources/image/tiles/leavesTile.png", () -> createLeavesTexture(size, size)));
-        TileType.WOOD.setSprite(loadOrGenerate("src/main/resources/image/tiles/oakLogTile.png", () -> createLogTexture(size, size)));
-        TileType.PLANKS.setSprite(loadOrGenerate("src/main/resources/image/tiles/oakPlanksTile.png", () -> createPlanksTexture(size, size, false)));
+        BufferedImage leavesSprite = loadOrGenerate("src/main/resources/image/tiles/leavesTile.png", () -> createLeavesTexture(size, size));
+        BufferedImage woodSprite = loadOrGenerate("src/main/resources/image/tiles/oakLogTile.png", () -> createLogTexture(size, size));
+
+        TileType.LEAVES.setSprite(leavesSprite);
+        TileType.WOOD.setSprite(woodSprite);
+        TileType.BACKGROUND_WOOD.setSprite(createDarkenedTexture(woodSprite, 0.55f));
+        TileType.BACKGROUND_LEAVES.setSprite(createDarkenedTexture(leavesSprite, 0.85f));
+
+        TileType.PLANKS.setSprite(loadOrGenerate("src/main/resources/image/tiles/oakPlankTile.png", () -> createPlanksTexture(size, size, false)));
         TileType.BACKGROUND_PLANKS.setSprite(loadOrGenerate("src/main/resources/image/tiles/backgroundPlanksTile.png", () -> createPlanksTexture(size, size, true)));
 
         // Ores
@@ -48,9 +56,18 @@ public class Assets {
         TileType.GOLD_ORE.setSprite(loadOrGenerate("src/main/resources/image/tiles/goldOreTile.png", () -> createOreTexture(stoneSprite, new Color(245, 200, 35), new Color(255, 240, 120))));
 
         // Material and refined items
+        TileType.STICK.setSprite(loadOrGenerate("src/main/resources/image/tiles/stick.png", () -> createStickTexture(size, size)));
         TileType.COAL.setSprite(loadOrGenerate("src/main/resources/image/tiles/coal.png", () -> createCoalItemTexture(size, size)));
         TileType.IRON_INGOT.setSprite(loadOrGenerate("src/main/resources/image/tiles/ironIngot.png", () -> createIngotTexture(size, size, new Color(200, 205, 215), new Color(240, 245, 255))));
         TileType.GOLD_INGOT.setSprite(loadOrGenerate("src/main/resources/image/tiles/goldIngot.png", () -> createIngotTexture(size, size, new Color(235, 185, 30), new Color(255, 235, 110))));
+
+        // Tools (Pickaxes, Axes, Shovels, Swords)
+        for (TileType type : TileType.values()) {
+            if (type.isTool()) {
+                String toolFile = "src/main/resources/image/tiles/" + type.name().toLowerCase() + ".png";
+                type.setSprite(loadOrGenerate(toolFile, () -> createToolTexture(size, size, type.getToolCategory(), type.getToolTier())));
+            }
+        }
 
         TileType.TORCH.setAnimation(loadSpriteSheet("src/main/resources/image/tiles/torchTile.png", size, size), 10);
         TileType.CHEST.setSprite(loadOrGenerate("src/main/resources/image/tiles/chestTile.png", () -> createChestTexture(size, size)));
@@ -66,6 +83,7 @@ public class Assets {
         playerIdleLeft = new BufferedImage[]{load("src/main/resources/image/player/boy_left_1_idle.png")};
         playerIdleUp = new BufferedImage[]{load("src/main/resources/image/player/boy_up_1_idle.png")};
         playerIdleRight = new BufferedImage[]{load("src/main/resources/image/player/boy_right_1_idle.png")};
+
     }
 
     private static BufferedImage loadOrGenerate(String filename, Supplier<BufferedImage> proceduralFallback) {
@@ -99,6 +117,7 @@ public class Assets {
                     int rows = Math.max(1, sheet.getHeight() / frameHeight);
                     BufferedImage[] frames = new BufferedImage[cols * rows];
                     int index = 0;
+
                     for (int r = 0; r < rows; r++) {
                         for (int c = 0; c < cols; c++) {
                             frames[index++] = sheet.getSubimage(
@@ -116,6 +135,133 @@ public class Assets {
         }
         System.err.println("Spritesheet not found, using generic texture: " + filename);
         return new BufferedImage[]{genericTileSprite};
+    }
+
+    private static BufferedImage createDarkenedTexture(BufferedImage source, float brightnessFactor) {
+        int w = source.getWidth();
+        int h = source.getHeight();
+        BufferedImage result = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int argb = source.getRGB(x, y);
+                int a = (argb >>> 24) & 0xFF;
+                if (a == 0) continue;
+                int r = Math.clamp((int) (((argb >>> 16) & 0xFF) * brightnessFactor), 0, 255);
+                int g = Math.clamp((int) (((argb >>> 8) & 0xFF) * brightnessFactor), 0, 255);
+                int b = Math.clamp((int) ((argb & 0xFF) * brightnessFactor), 0, 255);
+                result.setRGB(x, y, (a << 24) | (r << 16) | (g << 8) | b);
+            }
+        }
+        return result;
+    }
+
+    private static BufferedImage createStickTexture(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        Color stickDark = new Color(92, 60, 28);
+        Color stickLight = new Color(145, 98, 48);
+
+        for (int i = 3; i < 13; i++) {
+            int x = i;
+            int y = 15 - i;
+            g.setColor(stickDark);
+            g.fillRect(x, y, 2, 2);
+            g.setColor(stickLight);
+            g.fillRect(x, y, 1, 1);
+        }
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createToolTexture(int w, int h, ToolCategory category, ToolTier tier) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+
+        Color handleDark = new Color(92, 60, 28);
+        Color handleLight = new Color(140, 94, 46);
+        Color headBase = tier.getThemeColor();
+        Color headDark = headBase.darker();
+        Color headShine = new Color(
+                Math.min(255, headBase.getRed() + 35),
+                Math.min(255, headBase.getGreen() + 35),
+                Math.min(255, headBase.getBlue() + 35)
+        );
+
+        int handleEnd = (category == ToolCategory.SWORD) ? 6 : 11;
+        for (int i = 2; i <= handleEnd; i++) {
+            int x = i;
+            int y = 15 - i;
+            g.setColor(handleDark);
+            g.fillRect(x, y, 2, 2);
+            g.setColor(handleLight);
+            g.fillRect(x, y, 1, 1);
+        }
+
+        switch (category) {
+            case PICKAXE -> {
+                g.setColor(headDark);
+                g.fillRect(7, 1, 6, 3);
+                g.fillRect(12, 2, 3, 6);
+                g.fillRect(5, 2, 2, 2);
+                g.fillRect(11, 8, 2, 2);
+
+                g.setColor(headBase);
+                g.fillRect(7, 2, 5, 2);
+                g.fillRect(12, 3, 2, 5);
+
+                g.setColor(headShine);
+                g.fillRect(8, 2, 3, 1);
+                g.fillRect(12, 3, 1, 3);
+            }
+            case AXE -> {
+                g.setColor(headDark);
+                g.fillRect(7, 1, 6, 6);
+                g.fillRect(6, 2, 2, 5);
+                g.fillRect(12, 6, 2, 2);
+
+                g.setColor(headBase);
+                g.fillRect(7, 2, 5, 4);
+                g.fillRect(7, 3, 2, 3);
+
+                g.setColor(headShine);
+                g.fillRect(7, 2, 3, 1);
+                g.fillRect(7, 3, 1, 3);
+            }
+            case SHOVEL -> {
+                g.setColor(headDark);
+                g.fillRect(9, 1, 6, 6);
+                g.setColor(headBase);
+                g.fillRect(10, 2, 4, 4);
+                g.setColor(headShine);
+                g.fillRect(11, 2, 2, 1);
+                g.fillRect(13, 3, 1, 2);
+            }
+            case SWORD -> {
+                g.setColor(headDark);
+                g.fillRect(4, 7, 5, 2);
+                g.fillRect(6, 6, 2, 5);
+
+                for (int i = 6; i <= 13; i++) {
+                    int x = i;
+                    int y = 15 - i;
+                    g.setColor(headDark);
+                    g.fillRect(x - 1, y - 1, 3, 3);
+                }
+                for (int i = 6; i <= 13; i++) {
+                    int x = i;
+                    int y = 15 - i;
+                    g.setColor(headBase);
+                    g.fillRect(x, y - 1, 2, 2);
+                    g.setColor(headShine);
+                    g.fillRect(x, y - 1, 1, 1);
+                }
+            }
+            default -> {
+            }
+        }
+
+        g.dispose();
+        return img;
     }
 
     private static BufferedImage createOreTexture(BufferedImage baseStone, Color primary, Color highlight) {

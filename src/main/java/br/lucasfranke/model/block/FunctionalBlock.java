@@ -28,23 +28,45 @@ public abstract class FunctionalBlock {
         EnginePanel.uiManager.openFunctionalBlock(this);
     }
 
-
     public void update() {
     }
 
-    public void onBreak(Player player) {
+    public void returnItemsToPlayer(Player player) {
         for (int r = 0; r < blockInventory.getRows(); r++) {
             for (int c = 0; c < blockInventory.getCols(); c++) {
                 Item item = blockInventory.getItem(r, c);
                 if (item != null && item.getQuantity() > 0) {
-                    player.addItem(item.getTileType(), item.getQuantity());
+                    player.addItem(item);
                     blockInventory.setItem(r, c, null);
                 }
             }
         }
+    }
+
+    public void onBreak(Player player) {
+        returnItemsToPlayer(player);
         if (EnginePanel.uiManager.getCurrentlyOpenFunctionalBlock() == this) {
             EnginePanel.uiManager.closeInventory();
         }
+    }
+
+    public boolean isWorldBlock() {
+        return true;
+    }
+
+    public Dimension getContentDimension() {
+        int slotSize = blockInventory.getSlotSize();
+        return new Dimension(blockInventory.getCols() * slotSize, blockInventory.getRows() * slotSize);
+    }
+
+    public Rectangle getSlotBounds(int row, int col, int contentStartX, int contentStartY) {
+        int slotSize = blockInventory.getSlotSize();
+        return new Rectangle(
+                contentStartX + col * slotSize,
+                contentStartY + row * slotSize,
+                slotSize,
+                slotSize
+        );
     }
 
     public void drawExtraUI(Graphics2D g2, int panelX, int panelY, int panelWidth, int panelHeight) {

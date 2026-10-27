@@ -4,6 +4,7 @@ import br.lucasfranke.EnginePanel;
 import br.lucasfranke.listeners.KeyManager;
 import br.lucasfranke.listeners.MouseManager;
 import br.lucasfranke.model.item.Item;
+import br.lucasfranke.model.type.TileType;
 
 import java.awt.event.KeyEvent;
 
@@ -11,19 +12,20 @@ public class HotBar implements ItemContainer {
 
     private final int rows = 1;
     private final int cols = 9;
-
     private final Item[][] slots;
     private Item currentItem;
     private int selectedSlot = 0;
+
     private final int slotSize = EnginePanel.tileSquare / 2;
 
     public HotBar() {
         slots = new Item[rows][cols];
-        slots[0][0] = new Item(br.lucasfranke.model.type.TileType.TORCH, 64);
-        slots[0][1] = new Item(br.lucasfranke.model.type.TileType.STONE, 64);
-        slots[0][2] = new Item(br.lucasfranke.model.type.TileType.CHEST, 10);
-        slots[0][3] = new Item(br.lucasfranke.model.type.TileType.FURNACE, 10);
-        slots[0][4] = new Item(br.lucasfranke.model.type.TileType.CRAFTING_TABLE, 10);
+        slots[0][0] = new Item(TileType.TORCH, 64);
+        slots[0][1] = new Item(TileType.STONE, 64);
+        slots[0][2] = new Item(TileType.CHEST, 10);
+        slots[0][3] = new Item(TileType.FURNACE, 10);
+        slots[0][4] = new Item(TileType.CRAFTING_TABLE, 10);
+        slots[0][5] = new Item(TileType.WOODEN_PICKAXE, 1);
     }
 
     @Override
@@ -64,7 +66,6 @@ public class HotBar implements ItemContainer {
     }
 
     public void update() {
-
         for (int keyCode = KeyEvent.VK_1; keyCode <= KeyEvent.VK_9; keyCode++) {
             if (KeyManager.isKeyPressed(keyCode)) {
                 selectedSlot = keyCode - KeyEvent.VK_1;
@@ -77,14 +78,11 @@ public class HotBar implements ItemContainer {
             selectedSlot = selectedSlot == 8 ? 0 : selectedSlot + 1;
             MouseManager.setWheelRotation(0);
         }
-
         if (MouseManager.getWheelRotation() < 0) {
             selectedSlot = selectedSlot == 0 ? 8 : selectedSlot - 1;
             MouseManager.setWheelRotation(0);
         }
 
         currentItem = slots[0][selectedSlot];
-
     }
-
 }

@@ -6,12 +6,12 @@ import br.lucasfranke.sound.Sound;
 import java.awt.image.BufferedImage;
 
 public enum TileType {
+
     AIR(false, false, false, false, 0, 0),
     GRASS(true, true, true, false, 0, 55),
     DIRT(true, true, true, false, 0, 55),
     STONE(true, true, true, false, 0, 155),
-
-    WOOD(false, true, true, false, 0, 75),
+    WOOD(true, true, true, false, 0, 75),
     LEAVES(false, true, true, false, 0, 20),
     PLANKS(true, true, true, false, 0, 65),
 
@@ -23,15 +23,43 @@ public enum TileType {
     BACKGROUND_GRASS(false, false, false, false, 0, 45),
     BACKGROUND_STONE(false, false, false, false, 0, 110),
     BACKGROUND_PLANKS(false, false, false, false, 0, 50),
+    BACKGROUND_WOOD(false, false, true, false, 0, 75),
+    BACKGROUND_LEAVES(false, false, true, false, 0, 20),
 
     TORCH(false, true, true, false, 14, 1),
     CHEST(false, true, true, true, 0, 60),
     FURNACE(false, true, true, true, 10, 90),
     CRAFTING_TABLE(false, true, true, true, 0, 60),
 
+
+    STICK(false, false, false, false, 0, 0),
     COAL(false, false, false, false, 0, 0),
     IRON_INGOT(false, false, false, false, 0, 0),
-    GOLD_INGOT(false, false, false, false, 0, 0);
+    GOLD_INGOT(false, false, false, false, 0, 0),
+
+
+    WOODEN_PICKAXE(false, false, false, false, 0, 0, ToolCategory.PICKAXE, ToolTier.WOOD),
+    STONE_PICKAXE(false, false, false, false, 0, 0, ToolCategory.PICKAXE, ToolTier.STONE),
+    IRON_PICKAXE(false, false, false, false, 0, 0, ToolCategory.PICKAXE, ToolTier.IRON),
+    GOLD_PICKAXE(false, false, false, false, 0, 0, ToolCategory.PICKAXE, ToolTier.GOLD),
+
+
+    WOODEN_AXE(false, false, false, false, 0, 0, ToolCategory.AXE, ToolTier.WOOD),
+    STONE_AXE(false, false, false, false, 0, 0, ToolCategory.AXE, ToolTier.STONE),
+    IRON_AXE(false, false, false, false, 0, 0, ToolCategory.AXE, ToolTier.IRON),
+    GOLD_AXE(false, false, false, false, 0, 0, ToolCategory.AXE, ToolTier.GOLD),
+
+
+    WOODEN_SHOVEL(false, false, false, false, 0, 0, ToolCategory.SHOVEL, ToolTier.WOOD),
+    STONE_SHOVEL(false, false, false, false, 0, 0, ToolCategory.SHOVEL, ToolTier.STONE),
+    IRON_SHOVEL(false, false, false, false, 0, 0, ToolCategory.SHOVEL, ToolTier.IRON),
+    GOLD_SHOVEL(false, false, false, false, 0, 0, ToolCategory.SHOVEL, ToolTier.GOLD),
+
+
+    WOODEN_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.WOOD),
+    STONE_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.STONE),
+    IRON_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.IRON),
+    GOLD_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.GOLD);
 
     private final boolean solid;
     private final boolean placeable;
@@ -39,16 +67,26 @@ public enum TileType {
     private final boolean functional;
     private final int lightEmission;
     private final int hardness;
+    private final ToolCategory toolCategory;
+    private final ToolTier toolTier;
+
     private BufferedImage sprite;
     private Sprite animation;
 
     TileType(boolean solid, boolean placeable, boolean breakable, boolean functional, int lightEmission, int hardness) {
+        this(solid, placeable, breakable, functional, lightEmission, hardness, ToolCategory.NONE, ToolTier.NONE);
+    }
+
+    TileType(boolean solid, boolean placeable, boolean breakable, boolean functional, int lightEmission, int hardness,
+             ToolCategory toolCategory, ToolTier toolTier) {
         this.solid = solid;
         this.placeable = placeable;
         this.breakable = breakable;
         this.functional = functional;
         this.lightEmission = lightEmission;
         this.hardness = hardness;
+        this.toolCategory = toolCategory;
+        this.toolTier = toolTier;
     }
 
     public boolean isSolid() {
@@ -75,13 +113,44 @@ public enum TileType {
         return hardness;
     }
 
+    public ToolCategory getToolCategory() {
+        return toolCategory;
+    }
+
+    public ToolTier getToolTier() {
+        return toolTier;
+    }
+
+    public boolean isTool() {
+        return toolCategory != ToolCategory.NONE && toolTier != ToolTier.NONE;
+    }
+
+    public ToolCategory getPreferredTool() {
+        return switch (this) {
+            case STONE, BACKGROUND_STONE, COAL_ORE, IRON_ORE, GOLD_ORE, FURNACE -> ToolCategory.PICKAXE;
+            case WOOD, PLANKS, BACKGROUND_PLANKS, CHEST, CRAFTING_TABLE -> ToolCategory.AXE;
+            case GRASS, DIRT, BACKGROUND_GRASS, BACKGROUND_DIRT -> ToolCategory.SHOVEL;
+            case LEAVES -> ToolCategory.SWORD;
+            default -> ToolCategory.NONE;
+        };
+    }
+
+    public ToolTier getRequiredTier() {
+        return switch (this) {
+            case STONE, BACKGROUND_STONE, COAL_ORE, FURNACE -> ToolTier.WOOD;
+            case IRON_ORE -> ToolTier.STONE;
+            case GOLD_ORE -> ToolTier.IRON;
+            default -> ToolTier.NONE;
+        };
+    }
+
     public TileType getDropType() {
         return switch (this) {
             case GRASS, BACKGROUND_GRASS -> GRASS;
             case DIRT, BACKGROUND_DIRT -> DIRT;
             case STONE, BACKGROUND_STONE -> STONE;
-            case WOOD -> WOOD;
-            case LEAVES -> LEAVES;
+            case WOOD, BACKGROUND_WOOD -> WOOD;
+            case LEAVES, BACKGROUND_LEAVES -> LEAVES;
             case PLANKS, BACKGROUND_PLANKS -> PLANKS;
             case COAL_ORE -> COAL;
             case IRON_ORE -> IRON_ORE;
@@ -100,6 +169,8 @@ public enum TileType {
             case DIRT -> BACKGROUND_DIRT;
             case STONE -> BACKGROUND_STONE;
             case PLANKS -> BACKGROUND_PLANKS;
+            case WOOD -> BACKGROUND_WOOD;
+            case LEAVES -> BACKGROUND_LEAVES;
             default -> AIR;
         };
     }

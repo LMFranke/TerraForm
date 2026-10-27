@@ -9,10 +9,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Chunk {
+
     public final int cx;
     public final TileType[][] blocks;
     public final TileType[][] backgroundBlocks;
     public final TileType[][] originalBackgroundBlocks;
+    public final boolean[][] naturalTreeTiles;
     public byte[][] lightMap;
     public int lastSunLightLevel = -1;
 
@@ -23,8 +25,9 @@ public class Chunk {
         this.blocks = blocks;
         this.backgroundBlocks = backgroundBlocks;
         this.lightMap = new byte[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
-
         this.originalBackgroundBlocks = new TileType[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
+        this.naturalTreeTiles = new boolean[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
+
         for (int i = 0; i < backgroundBlocks.length; i++) {
             System.arraycopy(backgroundBlocks[i], 0, this.originalBackgroundBlocks[i], 0, backgroundBlocks[i].length);
         }
@@ -71,12 +74,25 @@ public class Chunk {
         int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
         int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
         backgroundBlocks[localY][localX] = type;
+        naturalTreeTiles[localY][localX] = false;
     }
 
     public TileType getBackgroundBlock(int worldX, int worldY) {
         int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
         int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
         return backgroundBlocks[localY][localX];
+    }
+
+    public void setNaturalTreeTile(int worldX, int worldY, boolean isNaturalTree) {
+        int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
+        int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
+        naturalTreeTiles[localY][localX] = isNaturalTree;
+    }
+
+    public boolean isNaturalTreeTile(int worldX, int worldY) {
+        int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
+        int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
+        return naturalTreeTiles[localY][localX];
     }
 
     public void setOriginalBackgroundBlock(int worldX, int worldY, TileType type) {

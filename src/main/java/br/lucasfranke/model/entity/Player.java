@@ -8,18 +8,20 @@ import br.lucasfranke.inventory.Inventory;
 import br.lucasfranke.inventory.ItemContainer;
 import br.lucasfranke.listeners.KeyManager;
 import br.lucasfranke.listeners.MouseManager;
+import br.lucasfranke.model.block.CraftingTableBlock;
 import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.AnimationState;
 import br.lucasfranke.model.type.Direction;
 import br.lucasfranke.model.type.TileType;
 import br.lucasfranke.sound.Sound;
-import br.lucasfranke.world.Chunk;
 import br.lucasfranke.world.World;
 import br.lucasfranke.world.WorldManager;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,7 +31,6 @@ public class Player extends Entity {
 
     private WorldManager worldManager;
     private World world;
-
     private final Map<String, Sprite> animations = new HashMap<>();
 
     public double worldX;
@@ -40,10 +41,12 @@ public class Player extends Entity {
 
     public Inventory inventory;
     public HotBar hotBar;
+    public final CraftingTableBlock personalCrafting;
+
+    private int swingTick = 0;
 
     public Player() {
         super();
-
         this.worldX = EnginePanel.tileSquare * 10000.0;
         this.worldY = EnginePanel.tileSquare * 0;
 
@@ -52,6 +55,7 @@ public class Player extends Entity {
 
         this.inventory = new Inventory(5, 9);
         this.hotBar = new HotBar();
+        this.personalCrafting = new CraftingTableBlock(0, 0, true);
 
         this.width = EnginePanel.tileSquare - 8;
         this.height = EnginePanel.tileSquare - 2;
@@ -84,6 +88,41 @@ public class Player extends Entity {
     @Override
     public void draw(Graphics2D g) {
         g.drawImage(sprite.getFrame(), playerX, playerY, EnginePanel.tileSquare, EnginePanel.tileSquare, null);
+        drawHeldTool(g);
+    }
+
+    private void drawHeldTool(Graphics2D g) {
+        Item held = hotBar.getCurrentItem();
+        if (held == null || !held.isTool() || held.getTileType().getSprite() == null) {
+            return;
+        }
+
+        BufferedImage toolSprite = held.getTileType().getSprite();
+        int toolSize = (int) (EnginePanel.tileSquare * 0.65);
+        boolean facingLeft = (direction == Direction.LEFT);
+
+        Graphics2D g2d = (Graphics2D) g.create();
+        int handX = facingLeft ? playerX + 6 : playerX + EnginePanel.tileSquare - 10;
+        int handY = playerY + EnginePanel.tileSquare / 2 + 4;
+
+        double angle = 0;
+        if (swingTick > 0) {
+            double swingPhase = Math.sin(swingTick * 0.45);
+            angle = facingLeft ? -swingPhase * 0.85 : swingPhase * 0.85;
+        }
+
+        AffineTransform oldTransform = g2d.getTransform();
+        g2d.translate(handX, handY);
+        g2d.rotate(angle);
+
+        if (facingLeft) {
+            g2d.drawImage(toolSprite, 4, -toolSize + 6, -toolSize, toolSize, null);
+        } else {
+            g2d.drawImage(toolSprite, -4, -toolSize + 6, toolSize, toolSize, null);
+        }
+
+        g2d.setTransform(oldTransform);
+        g2d.dispose();
     }
 
     public boolean isBackgroundMode() {
@@ -98,12 +137,14 @@ public class Player extends Entity {
 
         if (!EnginePanel.uiManager.isInventoryOpen()) {
             if (MouseManager.isButtonPressed(MouseEvent.BUTTON1)) {
+                swingTick++;
                 if (worldManager.hoveredTileWorldPosition[0] != -1) {
                     worldManager.handleBlockInteraction();
                 } else {
                     worldManager.resetMining();
                 }
             } else {
+                swingTick = 0;
                 worldManager.resetMining();
             }
 
@@ -114,6 +155,7 @@ public class Player extends Entity {
                 MouseManager.unpressButton(MouseEvent.BUTTON3);
             }
         } else {
+            swingTick = 0;
             worldManager.resetMining();
         }
 
@@ -136,10 +178,23 @@ public class Player extends Entity {
 
         fallSpeed += gravity;
         if (fallSpeed > maxFallSpeed) fallSpeed = maxFallSpeed;
-
         moveY += fallSpeed;
 
         move(moveX, moveY);
+    }
+
+    public boolean addItem(Item item) {
+        if (item == null || item.getTileType() == null || item.getTileType() == TileType.AIR || item.getQuantity() <= 0) {
+            return false;
+        }
+        if (item.isTool()) {
+            if (placeToolItemInEmptySlot(hotBar, item) || placeToolItemInEmptySlot(inventory, item)) {
+                EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
+                return true;
+            }
+            return false;
+        }
+        return addItem(item.getTileType(), item.getQuantity());
     }
 
     public boolean addItem(TileType type, int amount) {
@@ -149,9 +204,11 @@ public class Player extends Entity {
 
         int remaining = amount;
 
-        remaining = stackIntoContainer(hotBar, type, remaining);
-        if (remaining > 0) {
-            remaining = stackIntoContainer(inventory, type, remaining);
+        if (!type.isTool()) {
+            remaining = stackIntoContainer(hotBar, type, remaining);
+            if (remaining > 0) {
+                remaining = stackIntoContainer(inventory, type, remaining);
+            }
         }
 
         if (remaining > 0) {
@@ -165,15 +222,31 @@ public class Player extends Entity {
             EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
             return true;
         }
+
+        return false;
+    }
+
+    private boolean placeToolItemInEmptySlot(ItemContainer container, Item toolItem) {
+        for (int r = 0; r < container.getRows(); r++) {
+            for (int c = 0; c < container.getCols(); c++) {
+                if (container.getItem(r, c) == null) {
+                    container.setItem(r, c, toolItem.copyWithQuantity(1));
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
     private int stackIntoContainer(ItemContainer container, TileType type, int remaining) {
+        if (type.isTool()) {
+            return remaining;
+        }
         for (int r = 0; r < container.getRows(); r++) {
             for (int c = 0; c < container.getCols(); c++) {
                 Item slotItem = container.getItem(r, c);
-                if (slotItem != null && slotItem.getTileType() == type && slotItem.getQuantity() < MAX_STACK_SIZE) {
-                    int space = MAX_STACK_SIZE - slotItem.getQuantity();
+                if (slotItem != null && slotItem.getTileType() == type && slotItem.getQuantity() < slotItem.getMaxStackSize()) {
+                    int space = slotItem.getMaxStackSize() - slotItem.getQuantity();
                     int toAdd = Math.min(space, remaining);
                     slotItem.increaseQuantity(toAdd);
                     remaining -= toAdd;
@@ -187,10 +260,11 @@ public class Player extends Entity {
     }
 
     private int placeInEmptySlot(ItemContainer container, TileType type, int remaining) {
+        int maxStack = type.isTool() ? 1 : MAX_STACK_SIZE;
         for (int r = 0; r < container.getRows(); r++) {
             for (int c = 0; c < container.getCols(); c++) {
                 if (container.getItem(r, c) == null) {
-                    int toPlace = Math.min(MAX_STACK_SIZE, remaining);
+                    int toPlace = Math.min(maxStack, remaining);
                     container.setItem(r, c, new Item(type, toPlace));
                     remaining -= toPlace;
                     if (remaining <= 0) {
@@ -208,7 +282,6 @@ public class Player extends Entity {
         }
 
         isFalling = true;
-
         if (dy != 0 && !collidesAt(worldX, worldY + dy)) {
             worldY += dy;
         } else {
@@ -224,7 +297,6 @@ public class Player extends Entity {
 
     private void updateAnimation() {
         boolean isMovingHorizontally = KeyManager.isKeyPressed(KeyEvent.VK_A) || KeyManager.isKeyPressed(KeyEvent.VK_D);
-
         state = isMovingHorizontally ? AnimationState.WALK : AnimationState.IDLE;
 
         if (state == AnimationState.IDLE) {
@@ -242,7 +314,6 @@ public class Player extends Entity {
     private void setAnimation() {
         String key = state.name() + "_" + direction.name();
         Sprite newAnimation = animations.get(key);
-
         if (sprite != newAnimation) {
             sprite = newAnimation;
             sprite.reset();
@@ -251,7 +322,6 @@ public class Player extends Entity {
 
     private boolean collidesAt(double testX, double testY) {
         int tileSize = EnginePanel.tileSquare;
-
         int leftTile = (int) Math.floor(testX / tileSize);
         int rightTile = (int) Math.floor((testX + width - 1) / tileSize);
         int topTile = (int) Math.floor(testY / tileSize);

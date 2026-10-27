@@ -65,7 +65,7 @@ public class EnginePanel extends JPanel implements Runnable {
         final int UPS = 60;
         final double timePerUpdate = 1000000000.0 / UPS;
 
-        final int FPS = 144;
+        final int FPS = 200;
         final double timePerFrame = 1000000000.0 / FPS;
 
         long previousTime = System.nanoTime();
