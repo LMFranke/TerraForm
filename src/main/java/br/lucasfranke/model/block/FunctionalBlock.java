@@ -8,6 +8,7 @@ import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.TileType;
 
 import java.awt.*;
+import java.awt.image.BufferedImage;
 
 public abstract class FunctionalBlock {
 
@@ -50,7 +51,6 @@ public abstract class FunctionalBlock {
         }
         int initialQty = sourceItem.getQuantity();
 
-        // 1. Tenta empilhar em slots que já possuem o mesmo item
         if (!sourceItem.isTool()) {
             for (int r = minRow; r <= maxRow; r++) {
                 for (int c = minCol; c <= maxCol; c++) {
@@ -70,7 +70,6 @@ public abstract class FunctionalBlock {
             }
         }
 
-        // 2. Tenta colocar em slots vazios
         for (int r = minRow; r <= maxRow; r++) {
             for (int c = minCol; c <= maxCol; c++) {
                 if (!canPlaceItemInSlot(r, c, sourceItem)) continue;
@@ -161,4 +160,9 @@ public abstract class FunctionalBlock {
             default -> null;
         };
     }
+
+    public BufferedImage getRenderSprite() {
+        return tileType.getSprite();
+    }
+
 }

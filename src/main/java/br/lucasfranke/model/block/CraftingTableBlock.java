@@ -201,7 +201,7 @@ public class CraftingTableBlock extends FunctionalBlock {
     }
 
     private Item findMatchingRecipeResult() {
-        int woodCount = countTilesInGrid(TileType.WOOD);
+        int woodCount = countTilesInGrid(TileType.OAK_WOOD);
         int planksCount = countTilesInGrid(TileType.PLANKS);
         int stickCount = countTilesInGrid(TileType.STICK);
         int stoneCount = countTilesInGrid(TileType.STONE);

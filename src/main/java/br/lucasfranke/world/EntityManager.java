@@ -154,7 +154,7 @@ public class EntityManager {
             return;
         }
 
-        int lightLevel = world.getStaticLight(spawnTileX, surfaceY);
+        int lightLevel = world.getLighting().getStaticLight(spawnTileX, surfaceY);
         TileType groundBlock = world.getBlock(spawnTileX, surfaceY + 1);
         double spawnY = (surfaceY + 1) * tileSize;
 
@@ -196,7 +196,7 @@ public class EntityManager {
         for (Mob mob : mobs) {
             int mobTileX = (int) Math.floor(mob.getCenterX() / tileSize);
             int mobTileY = (int) Math.floor(mob.getCenterY() / tileSize);
-            int light = world.getStaticLight(mobTileX, mobTileY);
+            int light = world.getLighting().getStaticLight(mobTileX, mobTileY);
             Color shadowColor = renderer.getShadowColor(light);
             mob.draw(g2, player, shadowColor);
         }

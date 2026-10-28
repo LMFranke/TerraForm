@@ -9,6 +9,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.function.Supplier;
 
 public class Assets {
@@ -31,6 +32,9 @@ public class Assets {
     public static BufferedImage[] chickenWalkLeft;
     public static BufferedImage[] chickenWalkRight;
 
+    public static BufferedImage furnaceOffSprite;
+    public static BufferedImage[] furnaceOnFrames;
+
     public static void init() {
         int size = EnginePanel.tileOriginalSquare;
         genericTileSprite = createGenericTexture(size, size);
@@ -46,13 +50,15 @@ public class Assets {
         TileType.BACKGROUND_GRASS.setSprite(load("src/main/resources/image/tiles/backgroundGrassTile.png"));
         TileType.BACKGROUND_STONE.setSprite(load("src/main/resources/image/tiles/backgroundStoneTile.png"));
 
-        BufferedImage leavesSprite = loadOrGenerate("src/main/resources/image/tiles/leavesTile.png", () -> createLeavesTexture(size, size));
+        BufferedImage[] leavesSprite = loadSpriteSheet("src/main/resources/image/tiles/oakLeaveTile.png", 16, 16);
         BufferedImage woodSprite = loadOrGenerate("src/main/resources/image/tiles/oakLogTile.png", () -> createLogTexture(size, size));
 
-        TileType.LEAVES.setSprite(leavesSprite);
-        TileType.WOOD.setSprite(woodSprite);
+        TileType.OAK_LEAVES.setAnimation(leavesSprite, 45);
+        TileType.OAK_WOOD.setSprite(woodSprite);
         TileType.BACKGROUND_WOOD.setSprite(createDarkenedTexture(woodSprite, 0.55f));
-        TileType.BACKGROUND_LEAVES.setSprite(createDarkenedTexture(leavesSprite, 0.85f));
+        TileType.BACKGROUND_LEAVES.setAnimation(leavesSprite, 45);
+
+        TileType.OAK_SAPLING.setSprite(load("src/main/resources/image/tiles/oakSapling.png"));
 
         TileType.PLANKS.setSprite(loadOrGenerate("src/main/resources/image/tiles/oakPlankTile.png", () -> createPlanksTexture(size, size, false)));
         TileType.BACKGROUND_PLANKS.setSprite(loadOrGenerate("src/main/resources/image/tiles/backgroundPlanksTile.png", () -> createPlanksTexture(size, size, true)));
@@ -85,8 +91,9 @@ public class Assets {
 
         TileType.TORCH.setAnimation(loadSpriteSheet("src/main/resources/image/tiles/torchTile.png", size, size), 10);
         TileType.CHEST.setSprite(loadOrGenerate("src/main/resources/image/tiles/chestTile.png", () -> createChestTexture(size, size)));
-        TileType.FURNACE.setSprite(loadOrGenerate("src/main/resources/image/tiles/furnaceTile.png", () -> createFurnaceTexture(size, size)));
         TileType.CRAFTING_TABLE.setSprite(loadOrGenerate("src/main/resources/image/tiles/craftingTableTile.png", () -> createCraftingTableTexture(size, size)));
+
+        initFurnaceSprites(size);
 
         playerWalkRight = new BufferedImage[]{load("src/main/resources/image/player/boy_right_1.png"), load("src/main/resources/image/player/boy_right_2.png")};
         playerWalkLeft = new BufferedImage[]{load("src/main/resources/image/player/boy_left_1.png"), load("src/main/resources/image/player/boy_left_2.png")};
@@ -156,6 +163,41 @@ public class Assets {
         }
         System.err.println("Spritesheet not found, using generic texture: " + filename);
         return new BufferedImage[]{genericTileSprite};
+    }
+
+    private static void initFurnaceSprites(int size) {
+        BufferedImage[] frames = loadSpriteSheet("src/main/resources/image/tiles/furnaceTile.png", size, size);
+        if (frames.length <= 1) {
+            furnaceOffSprite = frames[0];
+            furnaceOnFrames = new BufferedImage[]{frames[0]};
+        } else {
+            long firstWarmth = calculateWarmthScore(frames[0]);
+            long lastWarmth = calculateWarmthScore(frames[frames.length - 1]);
+            if (firstWarmth <= lastWarmth) {
+                furnaceOffSprite = frames[0];
+                furnaceOnFrames = Arrays.copyOfRange(frames, 1, frames.length);
+            } else {
+                furnaceOffSprite = frames[frames.length - 1];
+                furnaceOnFrames = Arrays.copyOfRange(frames, 0, frames.length - 1);
+            }
+        }
+        TileType.FURNACE.setSprite(furnaceOffSprite);
+    }
+
+    private static long calculateWarmthScore(BufferedImage img) {
+        long score = 0;
+        for (int y = 0; y < img.getHeight(); y++) {
+            for (int x = 0; x < img.getWidth(); x++) {
+                int argb = img.getRGB(x, y);
+                int a = (argb >>> 24) & 0xFF;
+                if (a == 0) continue;
+                int r = (argb >>> 16) & 0xFF;
+                int g = (argb >>> 8) & 0xFF;
+                int b = argb & 0xFF;
+                score += Math.max(0, r - b) * 3L + Math.max(0, g - b) * 2L + (r + g + b);
+            }
+        }
+        return score;
     }
 
     private static BufferedImage createMeatTexture(int w, int h, Color primary, Color fatAccent) {

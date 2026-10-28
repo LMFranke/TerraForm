@@ -2,6 +2,7 @@ package br.lucasfranke.world;
 
 import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.type.TileType;
+import br.lucasfranke.world.flora.TreeFeature;
 
 public class WorldGenerator {
 
@@ -164,7 +165,7 @@ public class WorldGenerator {
             int hash = deterministicHash(worldX);
             if ((hash & 0xFF) < 56) {
                 int trunkHeight = 4 + (Math.abs(hash >> 8) % 3); // Height between 4 and 6 tiles
-                placeTreeInBackground(chunk, col, groundRow - 1, trunkHeight);
+                TreeFeature.placeInChunk(chunk, col, groundRow - 1, trunkHeight);
                 lastTreeCol = col;
             }
         }
@@ -178,15 +179,18 @@ public class WorldGenerator {
 
         for (int dy = -2; dy <= 1; dy++) {
             int leafRow = topRow + dy;
-            if (leafRow < 0 || leafRow >= EnginePanel.CHUNK_HEIGHT) continue;
+            if (leafRow < 0 || leafRow >= EnginePanel.CHUNK_HEIGHT) {
+                continue;
+            }
 
             int radius = (dy == -2) ? 1 : 2;
             for (int dx = -radius; dx <= radius; dx++) {
                 int leafCol = centerCol + dx;
                 if (leafCol >= 0 && leafCol < EnginePanel.CHUNK_WIDTH) {
-                    if (chunk.blocks[leafRow][leafCol] == TileType.AIR
-                            && chunk.backgroundBlocks[leafRow][leafCol] == TileType.AIR) {
-                        chunk.backgroundBlocks[leafRow][leafCol] = TileType.BACKGROUND_LEAVES;
+                    if (chunk.blocks[leafRow][leafCol] == TileType.AIR && chunk.backgroundBlocks[leafRow][leafCol] == TileType.AIR) {
+                        if (chunk.blocks[leafRow][leafCol] != TileType.OAK_WOOD) {
+                            chunk.blocks[leafRow][leafCol] = TileType.OAK_LEAVES;
+                        }
                         chunk.naturalTreeTiles[leafRow][leafCol] = true;
                     }
                 }
@@ -194,10 +198,8 @@ public class WorldGenerator {
         }
 
         for (int r = baseRow; r >= topRow; r--) {
-            if (chunk.blocks[r][centerCol] == TileType.AIR) {
-                chunk.backgroundBlocks[r][centerCol] = TileType.BACKGROUND_WOOD;
-                chunk.naturalTreeTiles[r][centerCol] = true;
-            }
+            chunk.backgroundBlocks[r][centerCol] = TileType.BACKGROUND_WOOD;
+            chunk.naturalTreeTiles[r][centerCol] = true;
         }
     }
 

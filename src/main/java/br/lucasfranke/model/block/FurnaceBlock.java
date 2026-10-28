@@ -1,11 +1,15 @@
 package br.lucasfranke.model.block;
 
+import br.lucasfranke.Assets;
+import br.lucasfranke.EnginePanel;
+import br.lucasfranke.Sprite;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.TileType;
 import br.lucasfranke.model.type.ToolTier;
 
 import java.awt.*;
+import java.awt.image.BufferedImage;
 
 public class FurnaceBlock extends FunctionalBlock {
 
@@ -14,9 +18,23 @@ public class FurnaceBlock extends FunctionalBlock {
     private static final int SMELT_TIME_TICKS = 180; // 3 sec in 60 UPS
 
     private int smeltProgress = 0;
+    private final Sprite activeAnimation;
 
     public FurnaceBlock(int worldX, int worldY) {
         super(worldX, worldY, TileType.FURNACE, "Furnace", 1, 3);
+        this.activeAnimation = new Sprite(Assets.furnaceOnFrames, 12);
+    }
+
+    public boolean isBurning() {
+        return smeltProgress > 0;
+    }
+
+    @Override
+    public BufferedImage getRenderSprite() {
+        if (isBurning() && activeAnimation != null) {
+            return activeAnimation.getFrame();
+        }
+        return Assets.furnaceOffSprite != null ? Assets.furnaceOffSprite : tileType.getSprite();
     }
 
     @Override
@@ -37,6 +55,8 @@ public class FurnaceBlock extends FunctionalBlock {
 
     @Override
     public void update() {
+        boolean wasBurning = isBurning();
+
         Item input = blockInventory.getItem(0, 0);
         Item fuel = blockInventory.getItem(0, 1);
         Item output = blockInventory.getItem(0, 2);
@@ -45,8 +65,11 @@ public class FurnaceBlock extends FunctionalBlock {
 
         if (resultType != null && isFuel(fuel) && canOutput(output, resultType)) {
             smeltProgress++;
+            activeAnimation.update();
+
             if (smeltProgress >= SMELT_TIME_TICKS) {
                 smeltProgress = 0;
+
                 input.decreaseQuantity();
                 if (input.getQuantity() <= 0) blockInventory.setItem(0, 0, null);
 
@@ -61,6 +84,13 @@ public class FurnaceBlock extends FunctionalBlock {
             }
         } else {
             smeltProgress = 0;
+            activeAnimation.reset();
+        }
+
+        boolean nowBurning = isBurning();
+        if (wasBurning != nowBurning && EnginePanel.worldManager != null) {
+            int chunkX = EnginePanel.worldManager.world.toChunkX(worldX);
+            EnginePanel.worldManager.world.getLighting().calculateLightForChunkAndNeighbors(chunkX);
         }
     }
 
@@ -71,7 +101,7 @@ public class FurnaceBlock extends FunctionalBlock {
             case GOLD_ORE -> TileType.GOLD_INGOT;
             case RAW_BEEF -> TileType.COOKED_BEEF;
             case RAW_CHICKEN -> TileType.COOKED_CHICKEN;
-            case WOOD -> TileType.COAL;
+            case OAK_WOOD -> TileType.COAL;
             case DIRT, GRASS -> TileType.STONE;
             default -> null;
         };
@@ -84,7 +114,7 @@ public class FurnaceBlock extends FunctionalBlock {
             return true;
         }
         return switch (fuelType) {
-            case COAL, WOOD, PLANKS, STICK, TORCH, GRASS -> true;
+            case COAL, OAK_WOOD, PLANKS, STICK, TORCH, GRASS -> true;
             default -> false;
         };
     }
@@ -155,6 +185,7 @@ public class FurnaceBlock extends FunctionalBlock {
 
         Item input = blockInventory.getItem(0, 0);
         TileType resultType = getSmeltResult(input != null ? input.getTileType() : null);
+
         g2.setFont(new Font("SansSerif", Font.PLAIN, 12));
         if (smeltProgress > 0 && resultType != null) {
             int pct = (int) (ratio * 100);

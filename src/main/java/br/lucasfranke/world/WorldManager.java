@@ -37,11 +37,14 @@ public class WorldManager {
 
     public void update() {
         TileType.updateAnimations();
+
         int playerTileX = (int) (EnginePanel.player.worldX / EnginePanel.tileSquare);
         int playerChunkX = world.toChunkX(playerTileX);
 
-        dayNightCycle.update(world, playerChunkX);
-        world.updateActiveFunctionalBlocks(playerChunkX, 2);
+        dayNightCycle.update(world.getLighting(), playerChunkX);
+        world.updateActiveFunctionalBlocks(playerChunkX, 4);
+        world.getFlora().updateNaturalLeaves(playerChunkX, 4);
+        world.getFlora().updateSaplings();
         entityManager.update(EnginePanel.player);
         interactionController.update(EnginePanel.player);
     }

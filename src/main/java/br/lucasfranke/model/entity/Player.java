@@ -133,7 +133,7 @@ public class Player extends Entity {
     }
 
     public boolean isBackgroundMode() {
-        return KeyManager.isKeyPressed(KeyEvent.VK_SHIFT) || KeyManager.isKeyPressed(KeyEvent.VK_W) || this.direction == Direction.UP;
+        return KeyManager.isKeyPressed(KeyEvent.VK_SHIFT);
     }
 
     private void handleInput() {

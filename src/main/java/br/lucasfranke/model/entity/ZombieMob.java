@@ -40,13 +40,13 @@ public class ZombieMob extends Mob {
     }
 
     private void checkSunlightBurn(World world) {
-        if (world.getSunLightLevel() < 13) {
+        if (world.getLighting().getSunLightLevel() < 13) {
             burnTickCounter = 0;
             return;
         }
         int tileX = (int) Math.floor(getCenterX() / EnginePanel.tileSquare);
         int tileY = (int) Math.floor(getCenterY() / EnginePanel.tileSquare);
-        if (world.getStaticLight(tileX, tileY) >= 14) {
+        if (world.getLighting().getStaticLight(tileX, tileY) >= 14) {
             burnTickCounter++;
             if (burnTickCounter >= 60) {
                 burnTickCounter = 0;

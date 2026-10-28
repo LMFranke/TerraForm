@@ -11,8 +11,10 @@ public enum TileType {
     GRASS(true, true, true, false, 0, 55),
     DIRT(true, true, true, false, 0, 55),
     STONE(true, true, true, false, 0, 155),
-    WOOD(true, true, true, false, 0, 75),
-    LEAVES(false, true, true, false, 0, 20),
+
+    OAK_SAPLING(false, true, true, false, 0, 1),
+    OAK_WOOD(true, true, true, false, 0, 75),
+    OAK_LEAVES(false, true, true, false, 0, 20),
     PLANKS(true, true, true, false, 0, 65),
 
     COAL_ORE(true, true, true, false, 0, 170),
@@ -168,9 +170,9 @@ public enum TileType {
     public ToolCategory getPreferredTool() {
         return switch (this) {
             case STONE, BACKGROUND_STONE, COAL_ORE, IRON_ORE, GOLD_ORE, FURNACE -> ToolCategory.PICKAXE;
-            case WOOD, BACKGROUND_WOOD, PLANKS, BACKGROUND_PLANKS, CHEST, CRAFTING_TABLE -> ToolCategory.AXE;
+            case OAK_WOOD, BACKGROUND_WOOD, PLANKS, BACKGROUND_PLANKS, CHEST, CRAFTING_TABLE -> ToolCategory.AXE;
             case GRASS, DIRT, BACKGROUND_GRASS, BACKGROUND_DIRT -> ToolCategory.SHOVEL;
-            case LEAVES, BACKGROUND_LEAVES -> ToolCategory.SWORD;
+            case OAK_LEAVES, BACKGROUND_LEAVES -> ToolCategory.SWORD;
             default -> ToolCategory.NONE;
         };
     }
@@ -189,13 +191,14 @@ public enum TileType {
             case GRASS, BACKGROUND_GRASS -> GRASS;
             case DIRT, BACKGROUND_DIRT -> DIRT;
             case STONE, BACKGROUND_STONE -> STONE;
-            case WOOD, BACKGROUND_WOOD -> WOOD;
-            case LEAVES, BACKGROUND_LEAVES -> LEAVES;
+            case OAK_WOOD, BACKGROUND_WOOD -> OAK_WOOD;
+            case OAK_LEAVES, BACKGROUND_LEAVES -> OAK_LEAVES;
             case PLANKS, BACKGROUND_PLANKS -> PLANKS;
             case COAL_ORE -> COAL;
             case IRON_ORE -> IRON_ORE;
             case GOLD_ORE -> GOLD_ORE;
             case TORCH -> TORCH;
+            case OAK_SAPLING -> OAK_SAPLING;
             case CHEST -> CHEST;
             case FURNACE -> FURNACE;
             case CRAFTING_TABLE -> CRAFTING_TABLE;
@@ -209,17 +212,17 @@ public enum TileType {
             case DIRT -> BACKGROUND_DIRT;
             case STONE -> BACKGROUND_STONE;
             case PLANKS -> BACKGROUND_PLANKS;
-            case WOOD -> BACKGROUND_WOOD;
-            case LEAVES -> BACKGROUND_LEAVES;
+            case OAK_WOOD -> BACKGROUND_WOOD;
+            case OAK_LEAVES -> BACKGROUND_LEAVES;
             default -> AIR;
         };
     }
 
     public Sound getBreakSound() {
         return switch (this) {
-            case DIRT, GRASS, WOOD, LEAVES, PLANKS,
+            case DIRT, GRASS, OAK_WOOD, OAK_LEAVES, PLANKS,
                  BACKGROUND_DIRT, BACKGROUND_GRASS, BACKGROUND_PLANKS,
-                 TORCH, CHEST, CRAFTING_TABLE
+                 TORCH, OAK_SAPLING, CHEST, CRAFTING_TABLE
                     -> Sound.GRASS_BREAK;
             case STONE, COAL_ORE, IRON_ORE, GOLD_ORE, BACKGROUND_STONE, FURNACE
                     -> Sound.STONE_BREAK;

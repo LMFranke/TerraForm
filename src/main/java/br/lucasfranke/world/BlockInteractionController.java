@@ -76,6 +76,7 @@ public class BlockInteractionController {
     public void handleInteraction(Player player) {
         int tileX = hoveredTile[0];
         int tileY = hoveredTile[1];
+
         if (tileX == -1 || !world.isValidY(tileY)) {
             resetMining();
             return;
@@ -86,16 +87,16 @@ public class BlockInteractionController {
 
         if (MouseManager.isButtonPressed(MouseEvent.BUTTON1)) {
             if (breakCooldown == 0 && handleBreakProgress(player, tileX, tileY, backgroundMode)) {
-                world.calculateLightForChunkAndNeighbors(chunkX);
+                world.getLighting().calculateLightForChunkAndNeighbors(chunkX);
             }
         } else if (MouseManager.isButtonPressed(MouseEvent.BUTTON3)) {
             FunctionalBlock fb = world.getFunctionalBlock(tileX, tileY);
-            if (fb != null) {
+            if (fb != null && !backgroundMode) {
                 fb.onInteract(player);
                 return;
             }
             if (handlePlaceClick(player, tileX, tileY, backgroundMode)) {
-                world.calculateLightForChunkAndNeighbors(chunkX);
+                world.getLighting().calculateLightForChunkAndNeighbors(chunkX);
             }
         }
     }
@@ -115,7 +116,8 @@ public class BlockInteractionController {
             if (canBreakBg) {
                 targetTile = currentBg;
                 targetIsBg = true;
-            } else if (canBreakFg) {
+            } else if (canBreakFg && !currentFg.isFunctional()) {
+                // Não remove o bloco funcional da frente ao minerar no modo background
                 targetTile = currentFg;
             }
         } else {
@@ -155,6 +157,7 @@ public class BlockInteractionController {
             breakCooldown = 6;
             return true;
         }
+
         return false;
     }
 
@@ -187,9 +190,20 @@ public class BlockInteractionController {
     private void executeBlockBreak(Player player, int tileX, int tileY, TileType targetTile, boolean targetIsBg) {
         playSound(targetTile);
 
-        TileType drop = targetTile.getDropType();
-        if (drop != TileType.AIR) {
-            player.addItem(drop, 1);
+        if (targetTile == TileType.OAK_LEAVES || targetTile == TileType.BACKGROUND_LEAVES) {
+            Item held = player.hotBar.getCurrentItem();
+            boolean holdingSword = held != null && held.isTool()
+                    && held.getTileType().getToolCategory() == ToolCategory.SWORD;
+            if (holdingSword) {
+                player.addItem(TileType.OAK_LEAVES, 1);
+            } else {
+                world.getFlora().rollLeafDrops(player);
+            }
+        } else {
+            TileType drop = targetTile.getDropType();
+            if (drop != TileType.AIR) {
+                player.addItem(drop, 1);
+            }
         }
 
         applyHeldToolDurabilityWear(player, targetTile);
@@ -229,70 +243,18 @@ public class BlockInteractionController {
     }
 
     private void collapseNaturalTreeAbove(Player player, int trunkX, int cutY) {
-        int startY = cutY - 1;
-        if (!world.isValidY(startY) || !world.isNaturalTreeTile(trunkX, startY)) {
-            return;
-        }
-
-        Queue<Point> queue = new LinkedList<>();
-        Set<Point> visited = new HashSet<>();
-
-        Point root = new Point(trunkX, startY);
-        queue.add(root);
-        visited.add(root);
-
-        int[] dx = {0, 0, -1, 1, -1, 1};
-        int[] dy = {-1, 1, 0, 0, -1, -1};
-
-        while (!queue.isEmpty()) {
-            Point current = queue.poll();
-            int cx = current.x;
-            int cy = current.y;
-
-            TileType currentBg = world.getBackgroundBlock(cx, cy);
-            boolean isTrunk = (currentBg == TileType.BACKGROUND_WOOD);
-            boolean isLeaf = (currentBg == TileType.BACKGROUND_LEAVES);
-
-            if (!isTrunk && !isLeaf) {
-                continue;
+        for (int cy = cutY - 1; world.isValidY(cy); cy--) {
+            if (!world.isNaturalTreeTile(trunkX, cy)
+                    || world.getBackgroundBlock(trunkX, cy) != TileType.BACKGROUND_WOOD) {
+                break;
             }
-
-            world.setBackgroundBlock(cx, cy, world.getNaturalBackgroundBlock(cx, cy));
+            TileType currentBg = world.getBackgroundBlock(trunkX, cy);
+            world.setBackgroundBlock(trunkX, cy, world.getNaturalBackgroundBlock(trunkX, cy));
             TileType drop = currentBg.getDropType();
             if (drop != TileType.AIR) {
                 player.addItem(drop, 1);
             }
-            checkAndDropUnsupportedTorchesAround(player, cx, cy);
-
-            for (int i = 0; i < dx.length; i++) {
-                int nx = cx + dx[i];
-                int ny = cy + dy[i];
-
-                if (!world.isValidY(ny) || ny > cutY) {
-                    continue;
-                }
-                if (Math.abs(nx - trunkX) > MAX_TREE_CANOPY_RADIUS) {
-                    continue;
-                }
-
-                Point next = new Point(nx, ny);
-                if (visited.contains(next) || !world.isNaturalTreeTile(nx, ny)) {
-                    continue;
-                }
-
-                TileType nextBg = world.getBackgroundBlock(nx, ny);
-                if (isTrunk) {
-                    boolean nextIsSameTrunk = (nextBg == TileType.BACKGROUND_WOOD && nx == trunkX);
-                    boolean nextIsLeaf = (nextBg == TileType.BACKGROUND_LEAVES);
-                    if (nextIsSameTrunk || nextIsLeaf) {
-                        visited.add(next);
-                        queue.add(next);
-                    }
-                } else if (nextBg == TileType.BACKGROUND_LEAVES) {
-                    visited.add(next);
-                    queue.add(next);
-                }
-            }
+            checkAndDropUnsupportedTorchesAround(player, trunkX, cy);
         }
     }
 
@@ -301,13 +263,23 @@ public class BlockInteractionController {
         for (int[] offset : offsets) {
             int tx = centerX + offset[0];
             int ty = centerY + offset[1];
-            if (world.isValidY(ty) && world.getBlock(tx, ty) == TileType.TORCH) {
-                if (!hasTorchSupport(tx, ty)) {
-                    world.setBlock(tx, ty, TileType.AIR);
-                    player.addItem(TileType.TORCH, 1);
-                }
+            if (!world.isValidY(ty)) continue;
+
+            TileType block = world.getBlock(tx, ty);
+            if (block == TileType.TORCH && !hasTorchSupport(tx, ty)) {
+                world.setBlock(tx, ty, TileType.AIR);
+                player.addItem(TileType.TORCH, 1);
+            } else if (block == TileType.OAK_SAPLING && !hasSaplingSupport(tx, ty)) {
+                world.setBlock(tx, ty, TileType.AIR);
+                player.addItem(TileType.OAK_SAPLING, 1);
             }
         }
+    }
+
+    private boolean hasSaplingSupport(int tileX, int tileY) {
+        if (!world.isValidY(tileY + 1)) return false;
+        TileType below = world.getBlock(tileX, tileY + 1);
+        return below == TileType.GRASS || below == TileType.DIRT;
     }
 
     private boolean hasTorchSupport(int tileX, int tileY) {
@@ -354,6 +326,10 @@ public class BlockInteractionController {
 
         if (tileToPlace == TileType.TORCH) {
             if (!hasTorchSupport(tileX, tileY)) {
+                return false;
+            }
+        } else if (tileToPlace == TileType.OAK_SAPLING) {
+            if (backgroundMode || !hasSaplingSupport(tileX, tileY)) {
                 return false;
             }
         }

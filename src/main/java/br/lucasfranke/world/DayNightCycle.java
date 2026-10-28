@@ -1,6 +1,8 @@
 package br.lucasfranke.world;
 
 import br.lucasfranke.listeners.KeyManager;
+import br.lucasfranke.world.light.LightingEngine;
+
 import java.awt.event.KeyEvent;
 
 public class DayNightCycle {
@@ -8,7 +10,7 @@ public class DayNightCycle {
     private static final double TIME_INCREMENT_PER_TICK = 24.0 / (60.0 * 120.0);
     private double timeOfDay = 8.0;
 
-    public void update(World world, int playerChunkX) {
+    public void update(LightingEngine lighting, int playerChunkX) {
         if (KeyManager.isKeyPressed(KeyEvent.VK_H) || KeyManager.isKeyPressed(KeyEvent.VK_T)) {
             timeOfDay = (timeOfDay + 1.0) % 24.0;
             KeyManager.unpressKey(KeyEvent.VK_H);
@@ -18,12 +20,12 @@ public class DayNightCycle {
         }
 
         int targetSunLight = calculateSunLightForHour(timeOfDay);
-        world.setSunLightLevel(targetSunLight, playerChunkX);
+        lighting.setSunLightLevel(targetSunLight, playerChunkX);
     }
 
     private int calculateSunLightForHour(double hour) {
-        int minLight = World.MIN_NIGHT_LIGHT_LEVEL;
-        int maxLight = World.MAX_LIGHT_LEVEL;
+        int minLight = LightingEngine.MIN_NIGHT_LIGHT_LEVEL;
+        int maxLight = LightingEngine.MAX_LIGHT_LEVEL;
 
         if (hour >= 7.0 && hour < 17.0) {
             return maxLight;

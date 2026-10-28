@@ -73,6 +73,7 @@ public class EnginePanel extends JPanel implements Runnable {
         double deltaF = 0;
 
         int frames = 0;
+        int uFrames = 0;
         double time = System.currentTimeMillis();
 
         player.linkManagers(worldManager);
@@ -89,6 +90,7 @@ public class EnginePanel extends JPanel implements Runnable {
             while (deltaU >= 1) {
                 update();
                 deltaU--;
+                uFrames++;
             }
 
             if (deltaF >= 1) {
@@ -99,8 +101,10 @@ public class EnginePanel extends JPanel implements Runnable {
 
             if(System.currentTimeMillis() - time >= 1000) {
                 System.out.println("fps:" + frames);
+                System.out.println("ups:" + uFrames);
                 time += 1000;
                 frames = 0;
+                uFrames = 0;
             }
 
         }
@@ -125,7 +129,7 @@ public class EnginePanel extends JPanel implements Runnable {
         g2d.setFont(new Font("Arial", Font.BOLD, 16));
         g2d.drawString("X: " + (int) (player.worldX / tileSquare), 10, 20);
         g2d.drawString("Y: " + (int) (player.worldY / tileSquare), 10, 38);
-        g2d.drawString("Hour: " + worldManager.getFormattedTime() + " | Sun light: " + worldManager.world.getSunLightLevel() + " [H: +1h]", 10, 56);
+        g2d.drawString("Hour: " + worldManager.getFormattedTime() + " | Sun light: " + worldManager.world.getLighting().getSunLightLevel() + " [H: +1h]", 10, 56);
     }
 
 }
