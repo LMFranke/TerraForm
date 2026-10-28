@@ -69,6 +69,8 @@ public class FurnaceBlock extends FunctionalBlock {
         return switch (inputType) {
             case IRON_ORE -> TileType.IRON_INGOT;
             case GOLD_ORE -> TileType.GOLD_INGOT;
+            case RAW_BEEF -> TileType.COOKED_BEEF;
+            case RAW_CHICKEN -> TileType.COOKED_CHICKEN;
             case WOOD -> TileType.COAL;
             case DIRT, GRASS -> TileType.STONE;
             default -> null;
@@ -90,6 +92,26 @@ public class FurnaceBlock extends FunctionalBlock {
     private boolean canOutput(Item output, TileType resultType) {
         if (output == null) return true;
         return output.getTileType() == resultType && output.getQuantity() < Player.MAX_STACK_SIZE;
+    }
+
+    @Override
+    public boolean isOutputSlot(int row, int col) {
+        return row == 0 && col == 2;
+    }
+
+    @Override
+    public boolean tryShiftClickInsert(Item item) {
+        if (item == null || item.getQuantity() <= 0) {
+            return false;
+        }
+        boolean moved = false;
+        if (getSmeltResult(item.getTileType()) != null) {
+            moved |= insertIntoContainer(blockInventory, item, 0, 0, 0, 0);
+        }
+        if (item.getQuantity() > 0 && isFuel(item)) {
+            moved |= insertIntoContainer(blockInventory, item, 0, 0, 1, 1);
+        }
+        return moved;
     }
 
     @Override

@@ -23,6 +23,8 @@ public class BlockInteractionController {
     private static final int MAX_TREE_CANOPY_RADIUS = 3;
 
     private final World world;
+    private final EntityManager entityManager;
+
     public final int[] hoveredTile = {-1, -1};
 
     private int miningTileX = -1;
@@ -33,8 +35,9 @@ public class BlockInteractionController {
     private int miningTargetHardness = 0;
     private int breakCooldown = 0;
 
-    public BlockInteractionController(World world) {
+    public BlockInteractionController(World world, EntityManager entityManager) {
         this.world = world;
+        this.entityManager = entityManager;
     }
 
     public void update(Player player) {
@@ -105,10 +108,20 @@ public class BlockInteractionController {
         TileType targetTile = null;
         boolean targetIsBg = false;
 
-        if (currentFg != TileType.AIR && currentFg.isBreakable()) {
-            targetTile = currentFg;
-        } else if (currentBg != TileType.AIR && currentBg != naturalBg && currentBg.isBreakable()) {
-            if (backgroundMode || world.isNaturalTreeTile(tileX, tileY)) {
+        boolean canBreakBg = currentBg != TileType.AIR && currentBg != naturalBg && currentBg.isBreakable();
+        boolean canBreakFg = currentFg != TileType.AIR && currentFg.isBreakable();
+
+        if (backgroundMode) {
+            if (canBreakBg) {
+                targetTile = currentBg;
+                targetIsBg = true;
+            } else if (canBreakFg) {
+                targetTile = currentFg;
+            }
+        } else {
+            if (canBreakFg) {
+                targetTile = currentFg;
+            } else if (canBreakBg && world.isNaturalTreeTile(tileX, tileY)) {
                 targetTile = currentBg;
                 targetIsBg = true;
             }
@@ -357,8 +370,10 @@ public class BlockInteractionController {
     private boolean intersectsPlayer(Player player, int tileX, int tileY) {
         int size = EnginePanel.tileSquare;
         Rectangle targetBounds = new Rectangle(tileX * size, tileY * size, size, size);
-        Rectangle playerBounds = new Rectangle((int) player.worldX, (int) player.worldY, player.width, player.height);
-        return playerBounds.intersects(targetBounds);
+        if (player.getBounds().intersects(targetBounds)) {
+            return true;
+        }
+        return entityManager != null && entityManager.intersectsAnyMob(targetBounds);
     }
 
     private void consumeSelectedItem(Player player, Item selectedItem) {

@@ -3,9 +3,10 @@ package br.lucasfranke;
 import java.awt.image.BufferedImage;
 
 public class Sprite {
-    private BufferedImage[] frames;
-    private int currentFrame;
-    private int frameDelay;
+
+    private final BufferedImage[] frames;
+    private volatile int currentFrame;
+    private final int frameDelay;
     private int counter;
 
     public Sprite(BufferedImage[] frames, int frameDelay) {
@@ -19,15 +20,16 @@ public class Sprite {
         counter++;
         if (counter >= frameDelay) {
             counter = 0;
-            currentFrame++;
-            if (currentFrame >= frames.length) {
-                currentFrame = 0;
-            }
+            currentFrame = (currentFrame + 1) % frames.length;
         }
     }
 
     public BufferedImage getFrame() {
-        return frames[currentFrame];
+        int index = currentFrame;
+        if (index < 0 || index >= frames.length) {
+            return frames[0];
+        }
+        return frames[index];
     }
 
     public void reset() {
@@ -35,4 +37,3 @@ public class Sprite {
         counter = 0;
     }
 }
-

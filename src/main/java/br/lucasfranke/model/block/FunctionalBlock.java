@@ -1,6 +1,7 @@
 package br.lucasfranke.model.block;
 
 import br.lucasfranke.EnginePanel;
+import br.lucasfranke.inventory.ItemContainer;
 import br.lucasfranke.inventory.Inventory;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
@@ -29,6 +30,62 @@ public abstract class FunctionalBlock {
     }
 
     public void update() {
+    }
+
+    public boolean isOutputSlot(int row, int col) {
+        return false;
+    }
+
+    public boolean canPlaceItemInSlot(int row, int col, Item item) {
+        return !isOutputSlot(row, col);
+    }
+
+    public boolean tryShiftClickInsert(Item item) {
+        return insertIntoContainer(blockInventory, item, 0, blockInventory.getRows() - 1, 0, blockInventory.getCols() - 1);
+    }
+
+    protected boolean insertIntoContainer(ItemContainer container, Item sourceItem, int minRow, int maxRow, int minCol, int maxCol) {
+        if (sourceItem == null || sourceItem.getQuantity() <= 0) {
+            return false;
+        }
+        int initialQty = sourceItem.getQuantity();
+
+        // 1. Tenta empilhar em slots que já possuem o mesmo item
+        if (!sourceItem.isTool()) {
+            for (int r = minRow; r <= maxRow; r++) {
+                for (int c = minCol; c <= maxCol; c++) {
+                    if (!canPlaceItemInSlot(r, c, sourceItem)) continue;
+                    Item slotItem = container.getItem(r, c);
+                    if (slotItem != null && slotItem.getTileType() == sourceItem.getTileType()
+                            && slotItem.getQuantity() < slotItem.getMaxStackSize()) {
+                        int space = slotItem.getMaxStackSize() - slotItem.getQuantity();
+                        int toMove = Math.min(space, sourceItem.getQuantity());
+                        slotItem.increaseQuantity(toMove);
+                        sourceItem.setQuantity(sourceItem.getQuantity() - toMove);
+                        if (sourceItem.getQuantity() <= 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Tenta colocar em slots vazios
+        for (int r = minRow; r <= maxRow; r++) {
+            for (int c = minCol; c <= maxCol; c++) {
+                if (!canPlaceItemInSlot(r, c, sourceItem)) continue;
+                if (container.getItem(r, c) == null) {
+                    int toPlace = Math.min(sourceItem.getMaxStackSize(), sourceItem.getQuantity());
+                    container.setItem(r, c, sourceItem.copyWithQuantity(toPlace));
+                    sourceItem.setQuantity(sourceItem.getQuantity() - toPlace);
+                    if (sourceItem.getQuantity() <= 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return sourceItem.getQuantity() < initialQty;
     }
 
     public void returnItemsToPlayer(Player player) {

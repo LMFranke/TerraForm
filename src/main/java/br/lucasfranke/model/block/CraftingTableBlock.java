@@ -1,5 +1,7 @@
 package br.lucasfranke.model.block;
 
+import br.lucasfranke.EnginePanel;
+import br.lucasfranke.listeners.KeyManager;
 import br.lucasfranke.listeners.MouseManager;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
@@ -8,6 +10,7 @@ import br.lucasfranke.ui.HotBarUI;
 import br.lucasfranke.ui.InventoryUI;
 
 import java.awt.*;
+import java.awt.event.KeyEvent;
 
 public class CraftingTableBlock extends FunctionalBlock {
 
@@ -171,8 +174,26 @@ public class CraftingTableBlock extends FunctionalBlock {
 
         if (outputRect.contains(mouseX, mouseY)) {
             Item result = findMatchingRecipeResult();
-            if (result != null && player.addItem(result.getTileType(), result.getQuantity())) {
-                consumeOneFromEachOccupiedSlot();
+            if (result == null) {
+                return true;
+            }
+
+            boolean shiftPressed = KeyManager.isKeyPressed(KeyEvent.VK_SHIFT);
+            if (shiftPressed) {
+                if (player.addItem(result)) {
+                    consumeOneFromEachOccupiedSlot();
+                }
+            } else {
+                Item currentDragged = EnginePanel.uiManager.getDraggedItem();
+                if (currentDragged == null) {
+                    EnginePanel.uiManager.setDraggedItem(result);
+                    consumeOneFromEachOccupiedSlot();
+                } else if (!result.isTool()
+                        && currentDragged.getTileType() == result.getTileType()
+                        && currentDragged.getQuantity() + result.getQuantity() <= currentDragged.getMaxStackSize()) {
+                    currentDragged.increaseQuantity(result.getQuantity());
+                    consumeOneFromEachOccupiedSlot();
+                }
             }
             return true;
         }

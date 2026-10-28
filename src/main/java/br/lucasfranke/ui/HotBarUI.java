@@ -2,12 +2,12 @@ package br.lucasfranke.ui;
 
 import br.lucasfranke.EnginePanel;
 import br.lucasfranke.inventory.HotBar;
+import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
 
 import java.awt.*;
 
 public class HotBarUI {
-
     private static final Color BAR_FRAME_BG = new Color(32, 34, 42, 235);
     private static final Color BAR_FRAME_BORDER = new Color(90, 95, 110, 200);
     private static final Color SELECTED_SLOT_BORDER = new Color(255, 220, 90, 245);
@@ -18,15 +18,15 @@ public class HotBarUI {
 
     public void draw(Graphics2D g2, HotBar hotBar) {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
         int slotSize = EnginePanel.tileSquare;
         int totalSlotsW = hotBar.getCols() * slotSize;
         int startX = (EnginePanel.WIDTH - totalSlotsW) / 2;
         int startY = (int) ((EnginePanel.HEIGHT - hotBar.getRows() * slotSize) * 0.95);
 
+        drawPlayerHealthBar(g2, EnginePanel.player, startX, startY - 64, totalSlotsW);
+
         g2.setColor(new Color(0, 0, 0, 110));
         g2.fillRoundRect(startX - 6, startY - 4, totalSlotsW + 16, slotSize + 14, 14, 14);
-
         g2.setColor(BAR_FRAME_BG);
         g2.fillRoundRect(startX - 8, startY - 6, totalSlotsW + 16, slotSize + 12, 12, 12);
         g2.setColor(BAR_FRAME_BORDER);
@@ -36,9 +36,7 @@ public class HotBarUI {
         for (int col = 0; col < hotBar.getCols(); col++) {
             int x = startX + col * slotSize;
             boolean isSelected = (col == hotBar.getSelectedSlot());
-
             InventoryUI.drawBeveledSlot(g2, x, startY, slotSize, slotSize, isSelected);
-
             Item item = hotBar.getItem(0, col);
             if (item != null && item.getTileType().getSprite() != null) {
                 if (item.getQuantity() <= 0) {
@@ -50,7 +48,6 @@ public class HotBarUI {
                     drawDurabilityBar(g2, item, x, startY, slotSize);
                 }
             }
-
             g2.setFont(KEYBIND_FONT);
             g2.setColor(isSelected ? new Color(255, 225, 110) : new Color(155, 160, 175, 200));
             g2.drawString(String.valueOf(col + 1), x + 6, startY + 13);
@@ -67,15 +64,45 @@ public class HotBarUI {
         }
     }
 
+    private void drawPlayerHealthBar(Graphics2D g2, Player player, int startX, int barY, int totalWidth) {
+        if (player == null) return;
+        int hearts = 10;
+        int heartSize = 14;
+        int gap = 4;
+
+        for (int i = 0; i < hearts; i++) {
+            int hx = startX + i * (heartSize + gap);
+            int hpThreshold = (i + 1) * 2;
+
+            g2.setColor(new Color(24, 24, 30, 220));
+            g2.fillRoundRect(hx - 1, barY - 1, heartSize + 2, heartSize + 2, 5, 5);
+
+            if (player.health >= hpThreshold) {
+                g2.setColor(new Color(225, 45, 55));
+                g2.fillRoundRect(hx, barY, heartSize, heartSize, 4, 4);
+                g2.setColor(new Color(255, 130, 140));
+                g2.fillRect(hx + 2, barY + 2, 3, 3);
+            } else if (player.health == hpThreshold - 1) {
+                g2.setColor(new Color(225, 45, 55));
+                g2.fillRoundRect(hx, barY, heartSize / 2, heartSize, 4, 4);
+            } else {
+                g2.setColor(new Color(55, 55, 65, 200));
+                g2.fillRoundRect(hx, barY, heartSize, heartSize, 4, 4);
+            }
+        }
+    }
+
     private void drawSelectedItemLabel(Graphics2D g2, Item selected, int hotBarY) {
         String label = selected.getTileType().name().replace('_', ' ');
         if (selected.isTool()) {
-            label += String.format("  •  %d/%d Dur  •  %.1fx Speed",
+            label += String.format("     %d/%d Dur     %d Atk     %.1fx Speed",
                     selected.getDurability(),
                     selected.getMaxDurability(),
+                    selected.getTileType().getAttackDamage(),
                     selected.getTileType().getToolTier().getEfficiencyMultiplier());
+        } else if (selected.getTileType().isFood()) {
+            label += String.format("     +%d HP (Right Click)", selected.getTileType().getFoodHealAmount());
         }
-
         g2.setFont(new Font("SansSerif", Font.BOLD, 13));
         FontMetrics fm = g2.getFontMetrics();
         int textW = fm.stringWidth(label);
@@ -89,7 +116,6 @@ public class HotBarUI {
         g2.setColor(new Color(85, 90, 105, 180));
         g2.setStroke(new BasicStroke(1.2f));
         g2.drawRoundRect(pillX, pillY, pillW, pillH, 12, 12);
-
         g2.setColor(new Color(245, 245, 250));
         g2.drawString(label, pillX + 12, pillY + 16);
     }
@@ -101,17 +127,14 @@ public class HotBarUI {
         if (item.getDurability() >= item.getMaxDurability()) {
             return;
         }
-
         float ratio = item.getDurabilityRatio();
         int barMaxWidth = slotSize - 12;
         int barWidth = Math.max(2, Math.round(barMaxWidth * ratio));
         int barHeight = 4;
         int barX = slotX + 6;
         int barY = slotY + slotSize - 8;
-
         g2.setColor(new Color(18, 18, 22, 230));
         g2.fillRect(barX, barY, barMaxWidth, barHeight);
-
         g2.setColor(Color.getHSBColor(ratio * 0.33f, 1.0f, 0.95f));
         g2.fillRect(barX, barY, barWidth, barHeight);
     }
