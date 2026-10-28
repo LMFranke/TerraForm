@@ -24,6 +24,13 @@ public class Assets {
     public static BufferedImage[] playerIdleUp;
     public static BufferedImage[] playerIdleDown;
 
+    public static BufferedImage[] zombieWalkLeft;
+    public static BufferedImage[] zombieWalkRight;
+    public static BufferedImage[] cowWalkLeft;
+    public static BufferedImage[] cowWalkRight;
+    public static BufferedImage[] chickenWalkLeft;
+    public static BufferedImage[] chickenWalkRight;
+
     public static void init() {
         int size = EnginePanel.tileOriginalSquare;
         genericTileSprite = createGenericTexture(size, size);
@@ -61,6 +68,13 @@ public class Assets {
         TileType.IRON_INGOT.setSprite(loadOrGenerate("src/main/resources/image/tiles/ironIngot.png", () -> createIngotTexture(size, size, new Color(200, 205, 215), new Color(240, 245, 255))));
         TileType.GOLD_INGOT.setSprite(loadOrGenerate("src/main/resources/image/tiles/goldIngot.png", () -> createIngotTexture(size, size, new Color(235, 185, 30), new Color(255, 235, 110))));
 
+        // Food & Mob drops
+        TileType.RAW_BEEF.setSprite(loadOrGenerate("src/main/resources/image/tiles/rawBeef.png", () -> createMeatTexture(size, size, new Color(195, 55, 55), new Color(240, 185, 175))));
+        TileType.COOKED_BEEF.setSprite(loadOrGenerate("src/main/resources/image/tiles/cookedBeef.png", () -> createMeatTexture(size, size, new Color(115, 62, 32), new Color(165, 105, 60))));
+        TileType.RAW_CHICKEN.setSprite(loadOrGenerate("src/main/resources/image/tiles/rawChicken.png", () -> createMeatTexture(size, size, new Color(235, 165, 150), new Color(255, 225, 215))));
+        TileType.COOKED_CHICKEN.setSprite(loadOrGenerate("src/main/resources/image/tiles/cookedChicken.png", () -> createMeatTexture(size, size, new Color(195, 125, 45), new Color(235, 175, 90))));
+        TileType.ROTTEN_FLESH.setSprite(loadOrGenerate("src/main/resources/image/tiles/rottenFlesh.png", () -> createMeatTexture(size, size, new Color(125, 75, 55), new Color(95, 145, 75))));
+
         // Tools (Pickaxes, Axes, Shovels, Swords)
         for (TileType type : TileType.values()) {
             if (type.isTool()) {
@@ -84,6 +98,13 @@ public class Assets {
         playerIdleUp = new BufferedImage[]{load("src/main/resources/image/player/boy_up_1_idle.png")};
         playerIdleRight = new BufferedImage[]{load("src/main/resources/image/player/boy_right_1_idle.png")};
 
+        // Procedural Mob Animations
+        zombieWalkRight = new BufferedImage[]{createZombieFrame(size, size, false, 0), createZombieFrame(size, size, false, 1)};
+        zombieWalkLeft = new BufferedImage[]{createZombieFrame(size, size, true, 0), createZombieFrame(size, size, true, 1)};
+        cowWalkRight = new BufferedImage[]{createCowFrame(size, size, false, 0), createCowFrame(size, size, false, 1)};
+        cowWalkLeft = new BufferedImage[]{createCowFrame(size, size, true, 0), createCowFrame(size, size, true, 1)};
+        chickenWalkRight = new BufferedImage[]{createChickenFrame(size, size, false, 0), createChickenFrame(size, size, false, 1)};
+        chickenWalkLeft = new BufferedImage[]{createChickenFrame(size, size, true, 0), createChickenFrame(size, size, true, 1)};
     }
 
     private static BufferedImage loadOrGenerate(String filename, Supplier<BufferedImage> proceduralFallback) {
@@ -137,6 +158,107 @@ public class Assets {
         return new BufferedImage[]{genericTileSprite};
     }
 
+    private static BufferedImage createMeatTexture(int w, int h, Color primary, Color fatAccent) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(primary.darker());
+        g.fillRoundRect(2, 4, w - 4, h - 7, 5, 5);
+        g.setColor(primary);
+        g.fillRoundRect(3, 5, w - 6, h - 9, 4, 4);
+        g.setColor(fatAccent);
+        g.fillRect(4, 6, 3, 2);
+        g.fillRect(9, 8, 2, 2);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createZombieFrame(int w, int h, boolean flipLeft, int step) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        Color skin = new Color(78, 138, 75);
+        Color shirt = new Color(45, 110, 125);
+        Color pants = new Color(55, 50, 95);
+
+        // Head
+        g.setColor(skin);
+        g.fillRect(4, 1, 8, 5);
+        g.setColor(new Color(20, 25, 20));
+        int eyeX = flipLeft ? 5 : 9;
+        g.fillRect(eyeX, 3, 2, 1);
+
+        // Torso & outstretched zombie arms
+        g.setColor(shirt);
+        g.fillRect(5, 6, 6, 5);
+        g.setColor(skin);
+        int armX = flipLeft ? 1 : 9;
+        g.fillRect(armX, 6, 6, 2);
+
+        // Legs with step animation
+        g.setColor(pants);
+        int legOffset = (step == 0) ? -1 : 1;
+        g.fillRect(5 + legOffset, 11, 2, 5);
+        g.fillRect(9 - legOffset, 11, 2, 5);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createCowFrame(int w, int h, boolean flipLeft, int step) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        Color coat = new Color(95, 62, 38);
+        Color patches = new Color(235, 235, 230);
+        Color snout = new Color(225, 175, 165);
+
+        // Body
+        g.setColor(coat);
+        g.fillRoundRect(2, 5, 12, 7, 3, 3);
+        g.setColor(patches);
+        g.fillRect(5, 6, 3, 3);
+        g.fillRect(9, 8, 3, 2);
+
+        // Head
+        int headX = flipLeft ? 0 : 10;
+        g.setColor(coat.darker());
+        g.fillRect(headX, 3, 6, 5);
+        g.setColor(snout);
+        g.fillRect(flipLeft ? 0 : 13, 6, 3, 2);
+
+        // Legs
+        g.setColor(coat.darker());
+        int shift = (step == 0) ? 0 : 1;
+        g.fillRect(3 + shift, 12, 2, 4);
+        g.fillRect(11 - shift, 12, 2, 4);
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage createChickenFrame(int w, int h, boolean flipLeft, int step) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        Color feathers = new Color(245, 245, 248);
+        Color beak = new Color(235, 175, 35);
+        Color comb = new Color(215, 45, 45);
+
+        // Body
+        g.setColor(feathers);
+        g.fillRoundRect(4, 6, 8, 6, 3, 3);
+
+        // Head, Comb & Beak
+        int headX = flipLeft ? 3 : 9;
+        g.fillRect(headX, 3, 4, 4);
+        g.setColor(comb);
+        g.fillRect(headX + 1, 2, 2, 1);
+        g.setColor(beak);
+        g.fillRect(flipLeft ? 1 : 13, 5, 2, 2);
+
+        // Legs
+        int shift = (step == 0) ? 0 : 1;
+        g.fillRect(6 - shift, 12, 1, 3);
+        g.fillRect(9 + shift, 12, 1, 3);
+        g.dispose();
+        return img;
+    }
+
     private static BufferedImage createDarkenedTexture(BufferedImage source, float brightnessFactor) {
         int w = source.getWidth();
         int h = source.getHeight();
@@ -160,7 +282,6 @@ public class Assets {
         Graphics2D g = img.createGraphics();
         Color stickDark = new Color(92, 60, 28);
         Color stickLight = new Color(145, 98, 48);
-
         for (int i = 3; i < 13; i++) {
             int x = i;
             int y = 15 - i;
@@ -176,7 +297,6 @@ public class Assets {
     private static BufferedImage createToolTexture(int w, int h, ToolCategory category, ToolTier tier) {
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
-
         Color handleDark = new Color(92, 60, 28);
         Color handleLight = new Color(140, 94, 46);
         Color headBase = tier.getThemeColor();
@@ -186,7 +306,6 @@ public class Assets {
                 Math.min(255, headBase.getGreen() + 35),
                 Math.min(255, headBase.getBlue() + 35)
         );
-
         int handleEnd = (category == ToolCategory.SWORD) ? 6 : 11;
         for (int i = 2; i <= handleEnd; i++) {
             int x = i;
@@ -196,7 +315,6 @@ public class Assets {
             g.setColor(handleLight);
             g.fillRect(x, y, 1, 1);
         }
-
         switch (category) {
             case PICKAXE -> {
                 g.setColor(headDark);
@@ -204,11 +322,9 @@ public class Assets {
                 g.fillRect(12, 2, 3, 6);
                 g.fillRect(5, 2, 2, 2);
                 g.fillRect(11, 8, 2, 2);
-
                 g.setColor(headBase);
                 g.fillRect(7, 2, 5, 2);
                 g.fillRect(12, 3, 2, 5);
-
                 g.setColor(headShine);
                 g.fillRect(8, 2, 3, 1);
                 g.fillRect(12, 3, 1, 3);
@@ -218,11 +334,9 @@ public class Assets {
                 g.fillRect(7, 1, 6, 6);
                 g.fillRect(6, 2, 2, 5);
                 g.fillRect(12, 6, 2, 2);
-
                 g.setColor(headBase);
                 g.fillRect(7, 2, 5, 4);
                 g.fillRect(7, 3, 2, 3);
-
                 g.setColor(headShine);
                 g.fillRect(7, 2, 3, 1);
                 g.fillRect(7, 3, 1, 3);
@@ -240,7 +354,6 @@ public class Assets {
                 g.setColor(headDark);
                 g.fillRect(4, 7, 5, 2);
                 g.fillRect(6, 6, 2, 5);
-
                 for (int i = 6; i <= 13; i++) {
                     int x = i;
                     int y = 15 - i;
@@ -259,7 +372,6 @@ public class Assets {
             default -> {
             }
         }
-
         g.dispose();
         return img;
     }
@@ -270,7 +382,6 @@ public class Assets {
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
         g.drawImage(baseStone, 0, 0, null);
-
         int[][] spots = {{3, 3}, {4, 3}, {3, 4}, {10, 4}, {11, 5}, {5, 10}, {6, 10}, {5, 11}, {11, 11}, {12, 10}};
         for (int i = 0; i < spots.length; i++) {
             g.setColor((i % 3 == 0) ? highlight : primary);
@@ -286,7 +397,6 @@ public class Assets {
         Color barkDark = new Color(92, 58, 30);
         Color barkMid = new Color(118, 76, 40);
         Color barkLight = new Color(138, 92, 50);
-
         g.setColor(barkMid);
         g.fillRect(2, 0, w - 4, h);
         g.setColor(barkDark);
@@ -306,7 +416,6 @@ public class Assets {
         Color leafDark = new Color(34, 105, 42, 235);
         Color leafMid = new Color(48, 138, 56, 240);
         Color leafLight = new Color(72, 168, 76, 240);
-
         g.setColor(leafMid);
         g.fillRoundRect(1, 1, w - 2, h - 2, 4, 4);
         for (int y = 2; y < h - 2; y += 3) {
@@ -324,7 +433,6 @@ public class Assets {
         Graphics2D g = img.createGraphics();
         Color base = isBackground ? new Color(115, 82, 48) : new Color(168, 122, 74);
         Color border = isBackground ? new Color(78, 52, 28) : new Color(120, 84, 48);
-
         g.setColor(base);
         g.fillRect(0, 0, w, h);
         g.setColor(border);

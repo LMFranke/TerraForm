@@ -92,6 +92,11 @@ public class WorldRenderer {
         drawHoverAndMiningOverlay(g2, player, interaction, tileSize, playerWorldX, playerWorldY, playerScreenX, playerScreenY);
     }
 
+    public Color getShadowColor(int lightLevel) {
+        int idx = Math.clamp(lightLevel, 0, 15);
+        return SHADOW_COLORS[idx];
+    }
+
     private int calculateTileLight(World world, int col, int row, int playerTileX, int playerTileY, double radius, int intensity) {
         int staticLight = world.getStaticLight(col, row);
         int finalLight = staticLight;

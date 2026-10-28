@@ -19,10 +19,10 @@ public enum TileType {
     IRON_ORE(true, true, true, false, 0, 210),
     GOLD_ORE(true, true, true, false, 0, 260),
 
-    BACKGROUND_DIRT(false, false, false, false, 0, 45),
-    BACKGROUND_GRASS(false, false, false, false, 0, 45),
-    BACKGROUND_STONE(false, false, false, false, 0, 110),
-    BACKGROUND_PLANKS(false, false, false, false, 0, 50),
+    BACKGROUND_DIRT(false, false, true, false, 0, 45),
+    BACKGROUND_GRASS(false, false, true, false, 0, 45),
+    BACKGROUND_STONE(false, false, true, false, 0, 110),
+    BACKGROUND_PLANKS(false, false, true, false, 0, 50),
     BACKGROUND_WOOD(false, false, true, false, 0, 75),
     BACKGROUND_LEAVES(false, false, true, false, 0, 20),
 
@@ -36,7 +36,6 @@ public enum TileType {
     COAL(false, false, false, false, 0, 0),
     IRON_INGOT(false, false, false, false, 0, 0),
     GOLD_INGOT(false, false, false, false, 0, 0),
-
 
     WOODEN_PICKAXE(false, false, false, false, 0, 0, ToolCategory.PICKAXE, ToolTier.WOOD),
     STONE_PICKAXE(false, false, false, false, 0, 0, ToolCategory.PICKAXE, ToolTier.STONE),
@@ -59,7 +58,14 @@ public enum TileType {
     WOODEN_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.WOOD),
     STONE_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.STONE),
     IRON_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.IRON),
-    GOLD_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.GOLD);
+    GOLD_SWORD(false, false, false, false, 0, 0, ToolCategory.SWORD, ToolTier.GOLD),
+
+
+    RAW_BEEF(false, false, false, false, 0, 0),
+    COOKED_BEEF(false, false, false, false, 0, 0),
+    RAW_CHICKEN(false, false, false, false, 0, 0),
+    COOKED_CHICKEN(false, false, false, false, 0, 0),
+    ROTTEN_FLESH(false, false, false, false, 0, 0);
 
     private final boolean solid;
     private final boolean placeable;
@@ -125,12 +131,46 @@ public enum TileType {
         return toolCategory != ToolCategory.NONE && toolTier != ToolTier.NONE;
     }
 
+    public boolean isFood() {
+        return getFoodHealAmount() > 0;
+    }
+
+    public int getFoodHealAmount() {
+        return switch (this) {
+            case RAW_BEEF, RAW_CHICKEN -> 3;
+            case COOKED_BEEF -> 8;
+            case COOKED_CHICKEN -> 6;
+            case ROTTEN_FLESH -> 2;
+            default -> 0;
+        };
+    }
+
+    public int getAttackDamage() {
+        if (!isTool()) {
+            return 2;
+        }
+        int tierBonus = switch (toolTier) {
+            case WOOD -> 2;
+            case GOLD -> 3;
+            case STONE -> 4;
+            case IRON -> 6;
+            default -> 0;
+        };
+        return switch (toolCategory) {
+            case SWORD -> 3 + tierBonus;
+            case AXE -> 2 + tierBonus;
+            case PICKAXE -> 1 + tierBonus;
+            case SHOVEL -> 1 + Math.max(1, tierBonus - 1);
+            default -> 2;
+        };
+    }
+
     public ToolCategory getPreferredTool() {
         return switch (this) {
             case STONE, BACKGROUND_STONE, COAL_ORE, IRON_ORE, GOLD_ORE, FURNACE -> ToolCategory.PICKAXE;
-            case WOOD, PLANKS, BACKGROUND_PLANKS, CHEST, CRAFTING_TABLE -> ToolCategory.AXE;
+            case WOOD, BACKGROUND_WOOD, PLANKS, BACKGROUND_PLANKS, CHEST, CRAFTING_TABLE -> ToolCategory.AXE;
             case GRASS, DIRT, BACKGROUND_GRASS, BACKGROUND_DIRT -> ToolCategory.SHOVEL;
-            case LEAVES -> ToolCategory.SWORD;
+            case LEAVES, BACKGROUND_LEAVES -> ToolCategory.SWORD;
             default -> ToolCategory.NONE;
         };
     }
