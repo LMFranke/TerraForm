@@ -1,10 +1,12 @@
-package br.lucasfranke.world;
+package br.lucasfranke.world.render;
 
 import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.TileType;
+import br.lucasfranke.world.interaction.BlockInteractionController;
+import br.lucasfranke.world.World;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;

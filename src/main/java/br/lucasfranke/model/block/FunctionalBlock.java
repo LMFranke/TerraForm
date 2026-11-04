@@ -93,6 +93,9 @@ public abstract class FunctionalBlock {
                 Item item = blockInventory.getItem(r, c);
                 if (item != null && item.getQuantity() > 0) {
                     player.addItem(item);
+                    if (item.getQuantity() > 0) {
+                        player.dropItem(item.copyWithQuantity(item.getQuantity()));
+                    }
                     blockInventory.setItem(r, c, null);
                 }
             }
@@ -100,9 +103,23 @@ public abstract class FunctionalBlock {
     }
 
     public void onBreak(Player player) {
-        returnItemsToPlayer(player);
         if (EnginePanel.uiManager.getCurrentlyOpenFunctionalBlock() == this) {
             EnginePanel.uiManager.closeInventory();
+        }
+
+        java.util.List<Item> contents = new java.util.ArrayList<>();
+        for (int r = 0; r < blockInventory.getRows(); r++) {
+            for (int c = 0; c < blockInventory.getCols(); c++) {
+                Item item = blockInventory.getItem(r, c);
+                if (item != null && item.getQuantity() > 0) {
+                    contents.add(item.copyWithQuantity(item.getQuantity()));
+                    blockInventory.setItem(r, c, null);
+                }
+            }
+        }
+
+        if (!contents.isEmpty() && EnginePanel.worldManager != null) {
+            EnginePanel.worldManager.entityManager.spawnContainerDrops(worldX, worldY, contents);
         }
     }
 

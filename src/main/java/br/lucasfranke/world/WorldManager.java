@@ -2,6 +2,10 @@ package br.lucasfranke.world;
 
 import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.type.TileType;
+import br.lucasfranke.world.interaction.BlockInteractionController;
+import br.lucasfranke.world.interaction.EntityManager;
+import br.lucasfranke.world.light.DayNightCycle;
+import br.lucasfranke.world.render.WorldRenderer;
 
 import java.awt.*;
 import java.util.Random;

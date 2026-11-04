@@ -1,4 +1,4 @@
-package br.lucasfranke.world;
+package br.lucasfranke.world.interaction;
 
 import br.lucasfranke.EnginePanel;
 import br.lucasfranke.listeners.MouseManager;
@@ -6,16 +6,13 @@ import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.TileType;
-import br.lucasfranke.model.type.ToolCategory;
-import br.lucasfranke.model.type.ToolTier;
+import br.lucasfranke.model.type.tool.ToolCategory;
+import br.lucasfranke.model.type.tool.ToolTier;
 import br.lucasfranke.sound.Sound;
+import br.lucasfranke.world.World;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.Set;
 
 public class BlockInteractionController {
 
@@ -188,23 +185,6 @@ public class BlockInteractionController {
 
     private void executeBlockBreak(Player player, int tileX, int tileY, TileType targetTile, boolean targetIsBg) {
         playSound(targetTile);
-
-        if (targetTile == TileType.OAK_LEAVES || targetTile == TileType.BACKGROUND_LEAVES) {
-            Item held = player.hotBar.getCurrentItem();
-            boolean holdingSword = held != null && held.isTool()
-                    && held.getTileType().getToolCategory() == ToolCategory.SWORD;
-            if (holdingSword) {
-                player.addItem(TileType.OAK_LEAVES, 1);
-            } else {
-                world.getFlora().rollLeafDrops(player);
-            }
-        } else {
-            TileType drop = targetTile.getDropType();
-            if (drop != TileType.AIR) {
-                player.addItem(drop, 1);
-            }
-        }
-
         applyHeldToolDurabilityWear(player, targetTile);
 
         if (!targetIsBg) {
@@ -213,16 +193,34 @@ public class BlockInteractionController {
                 fb.onBreak(player);
             }
             world.setBlock(tileX, tileY, TileType.AIR);
+            spawnBrokenBlockDrops(player, tileX, tileY, targetTile);
             checkAndDropUnsupportedTorchesAround(player, tileX, tileY);
         } else {
             boolean wasNaturalTreeTrunk = (targetTile == TileType.BACKGROUND_WOOD)
                     && world.isNaturalTreeTile(tileX, tileY);
-
             world.setBackgroundBlock(tileX, tileY, world.getNaturalBackgroundBlock(tileX, tileY));
+            spawnBrokenBlockDrops(player, tileX, tileY, targetTile);
             checkAndDropUnsupportedTorchesAround(player, tileX, tileY);
-
             if (wasNaturalTreeTrunk) {
                 collapseNaturalTreeAbove(player, tileX, tileY);
+            }
+        }
+    }
+
+    private void spawnBrokenBlockDrops(Player player, int tileX, int tileY, TileType targetTile) {
+        if (targetTile == TileType.OAK_LEAVES || targetTile == TileType.BACKGROUND_LEAVES) {
+            Item held = player.hotBar.getCurrentItem();
+            boolean holdingSword = held != null && held.isTool()
+                    && held.getTileType().getToolCategory() == ToolCategory.SWORD;
+            if (holdingSword) {
+                entityManager.spawnTileDrop(tileX, tileY, new Item(TileType.OAK_LEAVES, 1));
+            } else {
+                world.getFlora().rollLeafDrops(tileX, tileY);
+            }
+        } else {
+            TileType drop = targetTile.getDropType();
+            if (drop != TileType.AIR) {
+                entityManager.spawnTileDrop(tileX, tileY, new Item(drop, 1));
             }
         }
     }
@@ -251,7 +249,7 @@ public class BlockInteractionController {
             world.setBackgroundBlock(trunkX, cy, world.getNaturalBackgroundBlock(trunkX, cy));
             TileType drop = currentBg.getDropType();
             if (drop != TileType.AIR) {
-                player.addItem(drop, 1);
+                entityManager.spawnTileDrop(trunkX, cy, new Item(drop, 1));
             }
             checkAndDropUnsupportedTorchesAround(player, trunkX, cy);
         }
@@ -267,10 +265,10 @@ public class BlockInteractionController {
             TileType block = world.getBlock(tx, ty);
             if (block == TileType.TORCH && !hasTorchSupport(tx, ty)) {
                 world.setBlock(tx, ty, TileType.AIR);
-                player.addItem(TileType.TORCH, 1);
+                entityManager.spawnTileDrop(tx, ty, new Item(TileType.TORCH, 1));
             } else if (block == TileType.OAK_SAPLING && !hasSaplingSupport(tx, ty)) {
                 world.setBlock(tx, ty, TileType.AIR);
-                player.addItem(TileType.OAK_SAPLING, 1);
+                entityManager.spawnTileDrop(tx, ty, new Item(TileType.OAK_SAPLING, 1));
             }
         }
     }

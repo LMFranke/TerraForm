@@ -1,7 +1,7 @@
 package br.lucasfranke.model.entity;
 
 import br.lucasfranke.EnginePanel;
-import br.lucasfranke.Sprite;
+import br.lucasfranke.graphics.Sprite;
 import br.lucasfranke.model.type.AnimationState;
 import br.lucasfranke.model.type.Direction;
 import br.lucasfranke.world.World;

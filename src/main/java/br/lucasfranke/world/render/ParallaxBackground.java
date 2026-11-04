@@ -1,7 +1,9 @@
-package br.lucasfranke.world;
+package br.lucasfranke.world.render;
 
-import br.lucasfranke.Assets;
+import br.lucasfranke.graphics.Assets;
 import br.lucasfranke.EnginePanel;
+import br.lucasfranke.world.World;
+import br.lucasfranke.world.generation.Noise1D;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;

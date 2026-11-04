@@ -1,7 +1,9 @@
-package br.lucasfranke.model.entity;
+package br.lucasfranke.model.entity.mob;
 
 import br.lucasfranke.EnginePanel;
-import br.lucasfranke.Sprite;
+import br.lucasfranke.graphics.Sprite;
+import br.lucasfranke.model.entity.Entity;
+import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.type.AnimationState;
 import br.lucasfranke.model.type.Direction;
 import br.lucasfranke.model.type.MobType;

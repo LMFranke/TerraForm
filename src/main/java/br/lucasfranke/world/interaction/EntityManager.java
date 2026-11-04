@@ -1,10 +1,17 @@
-package br.lucasfranke.world;
+package br.lucasfranke.world.interaction;
 
 import br.lucasfranke.EnginePanel;
 import br.lucasfranke.listeners.MouseManager;
 import br.lucasfranke.model.entity.*;
+import br.lucasfranke.model.entity.mob.ChickenMob;
+import br.lucasfranke.model.entity.mob.CowMob;
+import br.lucasfranke.model.entity.mob.Mob;
+import br.lucasfranke.model.entity.mob.ZombieMob;
+import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.Direction;
 import br.lucasfranke.model.type.TileType;
+import br.lucasfranke.world.World;
+import br.lucasfranke.world.render.WorldRenderer;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -13,6 +20,7 @@ import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class EntityManager {
+
     private static final int MAX_PASSIVE_MOBS = 4;
     private static final int MAX_HOSTILE_MOBS = 5;
     private static final int SPAWN_INTERVAL_TICKS = 240; // 4 sec per 60 UPS
@@ -25,6 +33,7 @@ public class EntityManager {
     private static final double MIN_MOB_SEPARATION_PIXELS = EnginePanel.tileSquare * 10.0;
 
     private final World world;
+    private final DroppedItemManager droppedItemManager;
     private final Random random = new Random();
     private int spawnTimer = 0;
 
@@ -32,6 +41,23 @@ public class EntityManager {
 
     public EntityManager(World world) {
         this.world = world;
+        this.droppedItemManager = new DroppedItemManager(world);
+    }
+
+    public DroppedItemManager getDroppedItemManager() {
+        return droppedItemManager;
+    }
+
+    public void spawnDroppedItem(double worldX, double worldY, Item item, double vx, double vy, int pickupDelay) {
+        droppedItemManager.spawnDroppedItem(worldX, worldY, item, vx, vy, pickupDelay);
+    }
+
+    public void spawnTileDrop(int tileX, int tileY, Item item) {
+        droppedItemManager.spawnTileDrop(tileX, tileY, item);
+    }
+
+    public void spawnContainerDrops(int tileX, int tileY, List<Item> containerItems) {
+        droppedItemManager.spawnContainerDrops(tileX, tileY, containerItems);
     }
 
     public void update(Player player) {
@@ -55,7 +81,10 @@ public class EntityManager {
                 TileType drop = mob.getMobType().getDropItem();
                 int qty = mob.calculateDropAmount();
                 if (drop != TileType.AIR && qty > 0) {
-                    player.addItem(drop, qty);
+                    double vx = (random.nextDouble() - 0.5) * 2.6;
+                    droppedItemManager.spawnDroppedItem(
+                            mob.getCenterX(), mob.getCenterY(), new Item(drop, qty), vx, -3.0, 12
+                    );
                 }
                 toRemove.add(mob);
                 continue;
@@ -70,6 +99,8 @@ public class EntityManager {
         if (!toRemove.isEmpty()) {
             mobs.removeAll(toRemove);
         }
+
+        droppedItemManager.update(player);
     }
 
     public boolean handlePlayerMeleeAttack(Player player, int attackDamage, double reachPixels) {
@@ -192,6 +223,8 @@ public class EntityManager {
     }
 
     public void draw(Graphics2D g2, Player player, WorldRenderer renderer) {
+        droppedItemManager.draw(g2, player, renderer);
+
         int tileSize = EnginePanel.tileSquare;
         for (Mob mob : mobs) {
             int mobTileX = (int) Math.floor(mob.getCenterX() / tileSize);

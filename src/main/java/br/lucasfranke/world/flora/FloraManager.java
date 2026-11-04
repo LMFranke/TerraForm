@@ -98,7 +98,7 @@ public class FloraManager {
                 it.remove();
                 if (!isLeafConnectedToTrunk(pos.x, pos.y)) {
                     world.setBlock(pos.x, pos.y, TileType.AIR);
-                    rollLeafDrops(EnginePanel.player);
+                    rollLeafDrops(pos.x, pos.y);
                     int cx = world.toChunkX(pos.x);
                     if (chunksToRelight == null) {
                         chunksToRelight = new HashSet<>();
@@ -119,16 +119,20 @@ public class FloraManager {
         }
     }
 
-    public void rollLeafDrops(Player player) {
-        if (player == null) {
+    public void rollLeafDrops(int tileX, int tileY) {
+        if (EnginePanel.worldManager == null) {
             return;
         }
         if (random.nextDouble() < LEAF_DROP_STICK_CHANCE) {
             int stickQty = 1 + random.nextInt(2);
-            player.addItem(TileType.STICK, stickQty);
+            EnginePanel.worldManager.entityManager.spawnTileDrop(
+                    tileX, tileY, new br.lucasfranke.model.item.Item(TileType.STICK, stickQty)
+            );
         }
         if (random.nextDouble() < LEAF_DROP_SAPLING_CHANCE) {
-            player.addItem(TileType.OAK_SAPLING, 1);
+            EnginePanel.worldManager.entityManager.spawnTileDrop(
+                    tileX, tileY, new br.lucasfranke.model.item.Item(TileType.OAK_SAPLING, 1)
+            );
         }
     }
 

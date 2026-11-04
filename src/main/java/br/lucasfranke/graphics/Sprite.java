@@ -1,4 +1,4 @@
-package br.lucasfranke;
+package br.lucasfranke.graphics;
 
 import java.awt.image.BufferedImage;
 

@@ -1,4 +1,4 @@
-package br.lucasfranke.model.type;
+package br.lucasfranke.model.type.tool;
 
 public enum ToolCategory {
     NONE,

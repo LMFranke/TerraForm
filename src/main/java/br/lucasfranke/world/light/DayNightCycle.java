@@ -1,7 +1,6 @@
-package br.lucasfranke.world;
+package br.lucasfranke.world.light;
 
 import br.lucasfranke.listeners.KeyManager;
-import br.lucasfranke.world.light.LightingEngine;
 
 import java.awt.event.KeyEvent;
 

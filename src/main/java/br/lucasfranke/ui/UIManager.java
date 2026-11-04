@@ -73,9 +73,11 @@ public class UIManager {
 
         if (draggedItem != null) {
             player.addItem(draggedItem);
+            if (draggedItem.getQuantity() > 0) {
+                player.dropItem(draggedItem.copyWithQuantity(draggedItem.getQuantity()));
+            }
             draggedItem = null;
         }
-
         if (currentlyOpenFunctionalBlock != null && !currentlyOpenFunctionalBlock.isWorldBlock()) {
             currentlyOpenFunctionalBlock.returnItemsToPlayer(player);
         }
@@ -116,6 +118,12 @@ public class UIManager {
             }
         }
 
+        if (KeyManager.isKeyPressed(KeyEvent.VK_Q)) {
+            boolean dropFullStack = KeyManager.isKeyPressed(KeyEvent.VK_CONTROL);
+            handleDropKeyInUI(dropFullStack);
+            KeyManager.unpressKey(KeyEvent.VK_Q);
+        }
+
         boolean leftDown = MouseManager.isButtonPressed(MouseEvent.BUTTON1);
 
         if (leftDown && !leftMouseWasDown) {
@@ -138,6 +146,70 @@ public class UIManager {
         }
     }
 
+    public Point getSlotAtHotbar() {
+        int slotSize = EnginePanel.tileSquare;
+        int hotbarStartX = (EnginePanel.WIDTH - player.hotBar.getCols() * slotSize) / 2;
+        int hotbarStartY = (int) ((EnginePanel.HEIGHT - player.hotBar.getRows() * slotSize) * 0.95);
+        int hotbarEndX = hotbarStartX + slotSize * player.hotBar.getCols();
+        int hotbarEndY = hotbarStartY + slotSize * player.hotBar.getRows();
+        return getPointAtSlots(MouseManager.getX(), MouseManager.getY(), slotSize, hotbarStartX, hotbarStartY, hotbarEndX, hotbarEndY);
+    }
+
+
+    private boolean isMouseInsideAnyPanel() {
+        int mx = MouseManager.getX();
+        int my = MouseManager.getY();
+
+        if (currentlyOpenFunctionalBlock != null) {
+            Point blockStart = InventoryUI.getFunctionalBlockStart(currentlyOpenFunctionalBlock);
+            Dimension dim = currentlyOpenFunctionalBlock.getContentDimension();
+            Rectangle rect = new Rectangle(blockStart.x - 16, blockStart.y - 42, dim.width + 32, dim.height + 60);
+            if (rect.contains(mx, my)) return true;
+        }
+        if (currentlyOpenInventory != null) {
+            Point invStart = InventoryUI.getPlayerInventoryStart(currentlyOpenInventory, currentlyOpenFunctionalBlock != null);
+            int w = currentlyOpenInventory.getCols() * currentlyOpenInventory.getSlotSize();
+            int h = currentlyOpenInventory.getRows() * currentlyOpenInventory.getSlotSize();
+            Rectangle rect = new Rectangle(invStart.x - 16, invStart.y - 42, w + 32, h + 60);
+            if (rect.contains(mx, my)) return true;
+        }
+        return getSlotAtHotbar() != null;
+    }
+
+    // 4. Adicione os métodos handleDropKeyInUI e isMouseInsideAnyPanel na classe UIManager:
+    private void handleDropKeyInUI(boolean dropFullStack) {
+        resetLeftDragState();
+
+        // Caso 1: Segurando um item no cursor do mouse (draggedItem)
+        if (draggedItem != null && draggedItem.getQuantity() > 0) {
+            int qty = (dropFullStack || draggedItem.isTool()) ? draggedItem.getQuantity() : 1;
+            player.dropItem(draggedItem.copyWithQuantity(qty));
+            draggedItem.setQuantity(draggedItem.getQuantity() - qty);
+            if (draggedItem.getQuantity() <= 0) {
+                draggedItem = null;
+            }
+            return;
+        }
+
+        // Caso 2: Com o mouse em cima de um slot (Inventário, HotBar ou Bloco Funcional)
+        SlotRef hoveredSlot = findClickedSlotRef();
+        if (hoveredSlot == null) {
+            return;
+        }
+
+        Item slotItem = hoveredSlot.container().getItem(hoveredSlot.row(), hoveredSlot.col());
+        if (slotItem == null || slotItem.getQuantity() <= 0) {
+            return;
+        }
+
+        int qty = (dropFullStack || slotItem.isTool()) ? slotItem.getQuantity() : 1;
+        player.dropItem(slotItem.copyWithQuantity(qty));
+        slotItem.setQuantity(slotItem.getQuantity() - qty);
+        if (slotItem.getQuantity() <= 0) {
+            hoveredSlot.container().setItem(hoveredSlot.row(), hoveredSlot.col(), null);
+        }
+    }
+
     private void onLeftMousePressed() {
         resetLeftDragState();
 
@@ -147,6 +219,10 @@ public class UIManager {
 
         SlotRef clickedSlot = findClickedSlotRef();
         if (clickedSlot == null) {
+            if (draggedItem != null && !isMouseInsideAnyPanel()) {
+                player.dropItem(draggedItem);
+                draggedItem = null;
+            }
             return;
         }
 
@@ -481,15 +557,6 @@ public class UIManager {
         int endX = startX + slotSize * inv.getCols();
         int endY = startY + slotSize * inv.getRows();
         return getPointAtSlots(MouseManager.getX(), MouseManager.getY(), slotSize, startX, startY, endX, endY);
-    }
-
-    private Point getSlotAtHotbar() {
-        int slotSize = EnginePanel.tileSquare;
-        int hotbarStartX = (EnginePanel.WIDTH - player.hotBar.getCols() * slotSize) / 2;
-        int hotbarStartY = (int) ((EnginePanel.HEIGHT - player.hotBar.getRows() * slotSize) * 0.95);
-        int hotbarEndX = hotbarStartX + slotSize * player.hotBar.getCols();
-        int hotbarEndY = hotbarStartY + slotSize * player.hotBar.getRows();
-        return getPointAtSlots(MouseManager.getX(), MouseManager.getY(), slotSize, hotbarStartX, hotbarStartY, hotbarEndX, hotbarEndY);
     }
 
     private Point getPointAtSlots(int mouseX, int mouseY, int slotSize, int startX, int startY, int endX, int endY) {

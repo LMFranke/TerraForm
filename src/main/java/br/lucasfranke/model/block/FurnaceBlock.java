@@ -1,12 +1,12 @@
 package br.lucasfranke.model.block;
 
-import br.lucasfranke.Assets;
 import br.lucasfranke.EnginePanel;
-import br.lucasfranke.Sprite;
+import br.lucasfranke.graphics.Assets;
+import br.lucasfranke.graphics.Sprite;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.TileType;
-import br.lucasfranke.model.type.ToolTier;
+import br.lucasfranke.model.type.tool.ToolTier;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -15,7 +15,7 @@ public class FurnaceBlock extends FunctionalBlock {
 
     private static final int CONTENT_WIDTH = 260;
     private static final int CONTENT_HEIGHT = 164;
-    private static final int SMELT_TIME_TICKS = 180; // 3 sec in 60 UPS
+    private static final int SMELT_TIME_TICKS = 300; // 5 sec in 60 UPS
 
     private int smeltProgress = 0;
     private final Sprite activeAnimation;

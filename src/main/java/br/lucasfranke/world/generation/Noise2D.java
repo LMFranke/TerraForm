@@ -1,4 +1,4 @@
-package br.lucasfranke.world;
+package br.lucasfranke.world.generation;
 
 import java.util.Random;
 

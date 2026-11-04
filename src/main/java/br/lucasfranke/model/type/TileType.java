@@ -1,6 +1,8 @@
 package br.lucasfranke.model.type;
 
-import br.lucasfranke.Sprite;
+import br.lucasfranke.graphics.Sprite;
+import br.lucasfranke.model.type.tool.ToolCategory;
+import br.lucasfranke.model.type.tool.ToolTier;
 import br.lucasfranke.sound.Sound;
 
 import java.awt.image.BufferedImage;

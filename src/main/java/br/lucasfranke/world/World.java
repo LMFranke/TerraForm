@@ -4,6 +4,7 @@ import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.type.TileType;
 import br.lucasfranke.world.flora.FloraManager;
+import br.lucasfranke.world.generation.WorldGenerator;
 import br.lucasfranke.world.light.LightingEngine;
 
 import java.util.HashMap;

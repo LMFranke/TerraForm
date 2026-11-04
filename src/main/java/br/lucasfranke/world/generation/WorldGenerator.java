@@ -1,7 +1,8 @@
-package br.lucasfranke.world;
+package br.lucasfranke.world.generation;
 
 import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.type.TileType;
+import br.lucasfranke.world.Chunk;
 import br.lucasfranke.world.flora.TreeFeature;
 
 public class WorldGenerator {

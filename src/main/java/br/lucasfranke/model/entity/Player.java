@@ -1,8 +1,8 @@
 package br.lucasfranke.model.entity;
 
-import br.lucasfranke.Assets;
+import br.lucasfranke.graphics.Assets;
 import br.lucasfranke.EnginePanel;
-import br.lucasfranke.Sprite;
+import br.lucasfranke.graphics.Sprite;
 import br.lucasfranke.inventory.HotBar;
 import br.lucasfranke.inventory.Inventory;
 import br.lucasfranke.inventory.ItemContainer;
@@ -26,11 +26,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Player extends Entity {
+
     public static final int MAX_STACK_SIZE = 64;
     private static final double COMBAT_REACH_PIXELS = EnginePanel.tileSquare * 2.4;
 
     private WorldManager worldManager;
     private World world;
+
     private final Map<String, Sprite> animations = new HashMap<>();
 
     public final int playerX;
@@ -44,13 +46,16 @@ public class Player extends Entity {
 
     public Player() {
         super();
+
         this.worldX = EnginePanel.tileSquare * 10000.0;
         this.worldY = EnginePanel.tileSquare * 0;
         this.playerX = EnginePanel.WIDTH / 2 - (EnginePanel.tileSquare / 2);
         this.playerY = EnginePanel.HEIGHT / 2 - (EnginePanel.tileSquare / 2);
+
         this.inventory = new Inventory(5, 9);
         this.hotBar = new HotBar();
         this.personalCrafting = new CraftingTableBlock(0, 0, true);
+
         this.width = EnginePanel.tileSquare - 8;
         this.height = EnginePanel.tileSquare - 2;
         this.speed = 5;
@@ -58,8 +63,10 @@ public class Player extends Entity {
         this.maxFallSpeed = 12;
         this.maxHealth = 20;
         this.health = 20;
+
         this.direction = Direction.RIGHT;
         this.state = AnimationState.IDLE;
+
         initSprite();
         setAnimation();
     }
@@ -75,13 +82,16 @@ public class Player extends Entity {
         if (attackCooldown > 0) {
             attackCooldown--;
         }
+
         if (isDead()) {
             respawn();
             return;
         }
+
         handleInput();
         inventory.update();
         hotBar.update();
+
         updateAnimation();
         sprite.update();
     }
@@ -109,25 +119,31 @@ public class Player extends Entity {
         if (held == null || (!held.isTool() && !held.getTileType().isFood()) || held.getTileType().getSprite() == null) {
             return;
         }
+
         BufferedImage toolSprite = held.getTileType().getSprite();
         int toolSize = (int) (EnginePanel.tileSquare * 0.65);
         boolean facingLeft = (direction == Direction.LEFT);
+
         Graphics2D g2d = (Graphics2D) g.create();
         int handX = facingLeft ? playerX + 6 : playerX + EnginePanel.tileSquare - 10;
         int handY = playerY + EnginePanel.tileSquare / 2 + 4;
+
         double angle = 0;
         if (swingTick > 0) {
             double swingPhase = Math.sin(swingTick * 0.45);
             angle = facingLeft ? -swingPhase * 0.85 : swingPhase * 0.85;
         }
+
         AffineTransform oldTransform = g2d.getTransform();
         g2d.translate(handX, handY);
         g2d.rotate(angle);
+
         if (facingLeft) {
             g2d.drawImage(toolSprite, 4, -toolSize + 6, -toolSize, toolSize, null);
         } else {
             g2d.drawImage(toolSprite, -4, -toolSize + 6, toolSize, toolSize, null);
         }
+
         g2d.setTransform(oldTransform);
         g2d.dispose();
     }
@@ -141,7 +157,14 @@ public class Player extends Entity {
             EnginePanel.uiManager.toggleInventory(inventory);
             KeyManager.unpressKey(KeyEvent.VK_E);
         }
+
         if (!EnginePanel.uiManager.isInventoryOpen()) {
+            if (KeyManager.isKeyPressed(KeyEvent.VK_Q)) {
+                boolean dropFullStack = KeyManager.isKeyPressed(KeyEvent.VK_CONTROL);
+                handleDropKeyInWorld(dropFullStack);
+                KeyManager.unpressKey(KeyEvent.VK_Q);
+            }
+
             if (MouseManager.isButtonPressed(MouseEvent.BUTTON1)) {
                 swingTick++;
                 boolean hitMob = tryCombatAttack();
@@ -154,6 +177,7 @@ public class Player extends Entity {
                 swingTick = 0;
                 worldManager.resetMining();
             }
+
             if (MouseManager.isButtonPressed(MouseEvent.BUTTON3)) {
                 if (!tryConsumeHeldFood() && worldManager.hoveredTileWorldPosition[0] != -1) {
                     worldManager.handleBlockInteraction();
@@ -168,19 +192,69 @@ public class Player extends Entity {
         double moveX = 0;
         if (KeyManager.isKeyPressed(KeyEvent.VK_A)) moveX -= 1;
         if (KeyManager.isKeyPressed(KeyEvent.VK_D)) moveX += 1;
+
         if (moveX != 0) {
             direction = moveX > 0 ? Direction.RIGHT : Direction.LEFT;
             moveX *= speed;
         }
+
         if (KeyManager.isKeyPressed(KeyEvent.VK_SPACE) && !isFalling) {
             fallSpeed = -6;
             isFalling = true;
             EnginePanel.soundManager.playSound(Sound.PLAYER_JUMP);
         }
+
         fallSpeed += gravity;
         if (fallSpeed > maxFallSpeed) fallSpeed = maxFallSpeed;
 
         moveWithCollision(world, moveX + knockbackVx, fallSpeed);
+    }
+
+    private void handleDropKeyInWorld(boolean dropFullStack) {
+        Point hoveredHotbar = EnginePanel.uiManager.getSlotAtHotbar();
+        int targetCol = (hoveredHotbar != null) ? hoveredHotbar.x : hotBar.getSelectedSlot();
+
+        Item targetItem = hotBar.getItem(0, targetCol);
+        if (targetItem == null || targetItem.getQuantity() <= 0) {
+            return;
+        }
+
+        int qtyToDrop = (dropFullStack || targetItem.isTool()) ? targetItem.getQuantity() : 1;
+        Item droppedCopy = targetItem.copyWithQuantity(qtyToDrop);
+
+        targetItem.setQuantity(targetItem.getQuantity() - qtyToDrop);
+        if (targetItem.getQuantity() <= 0) {
+            hotBar.setItem(0, targetCol, null);
+            if (targetCol == hotBar.getSelectedSlot()) {
+                hotBar.setCurrentItem(null);
+            }
+        }
+
+        dropItem(droppedCopy);
+    }
+
+    public void dropItem(Item itemToDrop) {
+        if (itemToDrop == null || itemToDrop.getTileType() == null
+                || itemToDrop.getTileType() == TileType.AIR || itemToDrop.getQuantity() <= 0
+                || worldManager == null) {
+            return;
+        }
+
+        boolean throwLeft;
+        if (EnginePanel.uiManager != null && EnginePanel.uiManager.isInventoryOpen()) {
+            throwLeft = (direction == Direction.LEFT);
+        } else {
+            throwLeft = (MouseManager.getX() < playerX + width / 2);
+            direction = throwLeft ? Direction.LEFT : Direction.RIGHT;
+        }
+
+        double dirSign = throwLeft ? -1.0 : 1.0;
+        double spawnX = getCenterX() + dirSign * 14.0;
+        double spawnY = worldY + height * 0.42;
+        double vx = dirSign * 3.8;
+        double vy = -2.8;
+
+        worldManager.entityManager.spawnDroppedItem(spawnX, spawnY, itemToDrop, vx, vy, 45);
     }
 
     private boolean tryCombatAttack() {
@@ -223,42 +297,86 @@ public class Player extends Entity {
         return true;
     }
 
+    public boolean canAcceptItem(Item item) {
+        if (item == null || item.getTileType() == null || item.getTileType() == TileType.AIR || item.getQuantity() <= 0) {
+            return false;
+        }
+        if (hasSpaceFor(hotBar, item) || hasSpaceFor(inventory, item)) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean hasSpaceFor(ItemContainer container, Item item) {
+        for (int r = 0; r < container.getRows(); r++) {
+            for (int c = 0; c < container.getCols(); c++) {
+                Item slot = container.getItem(r, c);
+                if (slot == null) {
+                    return true;
+                }
+                if (!item.isTool() && slot.getTileType() == item.getTileType()
+                        && slot.getQuantity() < slot.getMaxStackSize()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public boolean addItem(Item item) {
         if (item == null || item.getTileType() == null || item.getTileType() == TileType.AIR || item.getQuantity() <= 0) {
             return false;
         }
+
         if (item.isTool()) {
             if (placeToolItemInEmptySlot(hotBar, item) || placeToolItemInEmptySlot(inventory, item)) {
+                item.setQuantity(0);
                 EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
                 return true;
             }
             return false;
         }
-        return addItem(item.getTileType(), item.getQuantity());
+
+        int initialAmount = item.getQuantity();
+        int remaining = addStackableAndGetRemainder(item.getTileType(), initialAmount);
+        item.setQuantity(remaining);
+
+        if (remaining < initialAmount) {
+            EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
+            return true;
+        }
+        return false;
     }
 
     public boolean addItem(TileType type, int amount) {
         if (type == null || type == TileType.AIR || amount <= 0) {
             return false;
         }
+        int remaining = addStackableAndGetRemainder(type, amount);
+        if (remaining < amount) {
+            EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
+            return true;
+        }
+        return false;
+    }
+
+    private int addStackableAndGetRemainder(TileType type, int amount) {
         int remaining = amount;
+
         if (!type.isTool()) {
             remaining = stackIntoContainer(hotBar, type, remaining);
             if (remaining > 0) {
                 remaining = stackIntoContainer(inventory, type, remaining);
             }
         }
+
         if (remaining > 0) {
             remaining = placeInEmptySlot(hotBar, type, remaining);
         }
         if (remaining > 0) {
             remaining = placeInEmptySlot(inventory, type, remaining);
         }
-        if (remaining < amount) {
-            EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
-            return true;
-        }
-        return false;
+        return remaining;
     }
 
     private boolean placeToolItemInEmptySlot(ItemContainer container, Item toolItem) {
@@ -277,6 +395,7 @@ public class Player extends Entity {
         if (type.isTool()) {
             return remaining;
         }
+
         for (int r = 0; r < container.getRows(); r++) {
             for (int c = 0; c < container.getCols(); c++) {
                 Item slotItem = container.getItem(r, c);
@@ -296,6 +415,7 @@ public class Player extends Entity {
 
     private int placeInEmptySlot(ItemContainer container, TileType type, int remaining) {
         int maxStack = type.isTool() ? 1 : MAX_STACK_SIZE;
+
         for (int r = 0; r < container.getRows(); r++) {
             for (int c = 0; c < container.getCols(); c++) {
                 if (container.getItem(r, c) == null) {
@@ -314,6 +434,7 @@ public class Player extends Entity {
     private void updateAnimation() {
         boolean isMovingHorizontally = KeyManager.isKeyPressed(KeyEvent.VK_A) || KeyManager.isKeyPressed(KeyEvent.VK_D);
         state = isMovingHorizontally ? AnimationState.WALK : AnimationState.IDLE;
+
         if (state == AnimationState.IDLE) {
             if (KeyManager.isKeyPressed(KeyEvent.VK_W) || KeyManager.isKeyPressed(KeyEvent.VK_SHIFT)) {
                 direction = Direction.UP;
@@ -322,12 +443,14 @@ public class Player extends Entity {
                 direction = Direction.DOWN;
             }
         }
+
         setAnimation();
     }
 
     private void setAnimation() {
         String key = state.name() + "_" + direction.name();
         Sprite newAnimation = animations.get(key);
+
         if (sprite != newAnimation) {
             sprite = newAnimation;
             sprite.reset();
@@ -339,6 +462,7 @@ public class Player extends Entity {
         animations.put("WALK_LEFT", new Sprite(Assets.playerWalkLeft, 12));
         animations.put("WALK_UP", new Sprite(Assets.playerWalkUp, 12));
         animations.put("WALK_DOWN", new Sprite(Assets.playerWalkDown, 12));
+
         animations.put("IDLE_RIGHT", new Sprite(Assets.playerIdleRight, 20));
         animations.put("IDLE_LEFT", new Sprite(Assets.playerIdleLeft, 20));
         animations.put("IDLE_UP", new Sprite(Assets.playerIdleUp, 20));

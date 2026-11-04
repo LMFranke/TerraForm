@@ -1,8 +1,9 @@
-package br.lucasfranke;
+package br.lucasfranke.graphics;
 
+import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.type.TileType;
-import br.lucasfranke.model.type.ToolCategory;
-import br.lucasfranke.model.type.ToolTier;
+import br.lucasfranke.model.type.tool.ToolCategory;
+import br.lucasfranke.model.type.tool.ToolTier;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -40,6 +41,8 @@ public class Assets {
     public static BufferedImage bgMountainsFar;
     public static BufferedImage bgMountainsNear;
     public static BufferedImage[] bgCloudModels;
+
+    public static BufferedImage lootBagSprite;
 
     public static void init() {
         int size = EnginePanel.tileOriginalSquare;
@@ -101,6 +104,8 @@ public class Assets {
 
         initFurnaceSprites(size);
         initBackgroundAssets();
+
+        lootBagSprite = loadOrGenerate("src/main/resources/image/tiles/lootBag.png", () -> createLootBagTexture(size, size));
 
         playerWalkRight = new BufferedImage[]{load("src/main/resources/image/player/boy_right_1.png"), load("src/main/resources/image/player/boy_right_2.png")};
         playerWalkLeft = new BufferedImage[]{load("src/main/resources/image/player/boy_left_1.png"), load("src/main/resources/image/player/boy_left_2.png")};
@@ -618,4 +623,41 @@ public class Assets {
         g.dispose();
         return img;
     }
+
+    private static BufferedImage createLootBagTexture(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+
+        Color leatherDark = new Color(82, 48, 24);
+        Color leatherMid = new Color(132, 82, 42);
+        Color leatherLight = new Color(168, 110, 60);
+        Color ropeGold = new Color(235, 190, 55);
+
+        // Corpo arredondado da bolsinha apoiada na base
+        g.setColor(leatherDark);
+        g.fillRoundRect(2, 6, w - 4, h - 7, 6, 6);
+        g.setColor(leatherMid);
+        g.fillRoundRect(3, 7, w - 6, h - 9, 5, 5);
+
+        // Brilho de volume no couro
+        g.setColor(leatherLight);
+        g.fillRect(4, 8, 3, 4);
+        g.fillRect(5, 12, 2, 1);
+
+        // Topo franzido do saco
+        g.setColor(leatherDark);
+        g.fillRect(5, 2, 6, 4);
+        g.setColor(leatherMid);
+        g.fillRect(6, 3, 4, 2);
+
+        // Cordão dourado amarrando o pescoço da bolsinha
+        g.setColor(ropeGold);
+        g.fillRect(5, 5, 6, 2);
+        g.setColor(ropeGold.darker());
+        g.fillRect(10, 6, 2, 2);
+
+        g.dispose();
+        return img;
+    }
+
 }

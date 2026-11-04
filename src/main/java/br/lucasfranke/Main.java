@@ -1,5 +1,7 @@
 package br.lucasfranke;
 
+import br.lucasfranke.graphics.Assets;
+
 import javax.swing.*;
 
 public class Main {
