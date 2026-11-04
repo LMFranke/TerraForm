@@ -40,9 +40,11 @@ public class Chunk {
         int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
         int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
         blocks[localY][localX] = type;
-        if (type != TileType.AIR || backgroundBlocks[localY][localX] != TileType.BACKGROUND_WOOD) {
+
+        if (type != TileType.OAK_LEAVES && backgroundBlocks[localY][localX] != TileType.BACKGROUND_WOOD) {
             naturalTreeTiles[localY][localX] = false;
         }
+
         Point key = new Point(localX, localY);
         if (type.isFunctional()) {
             functionalBlocks.put(key, FunctionalBlock.create(type, worldX, worldY));
@@ -76,7 +78,8 @@ public class Chunk {
         int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
         int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
         backgroundBlocks[localY][localX] = type;
-        if (type != TileType.AIR || blocks[localY][localX] != TileType.OAK_LEAVES) {
+
+        if (type != TileType.BACKGROUND_WOOD && blocks[localY][localX] != TileType.OAK_LEAVES) {
             naturalTreeTiles[localY][localX] = false;
         }
     }

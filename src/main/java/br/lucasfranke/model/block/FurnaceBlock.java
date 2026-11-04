@@ -154,13 +154,11 @@ public class FurnaceBlock extends FunctionalBlock {
         Rectangle fuelRect = getSlotBounds(0, 1, contentStartX, contentStartY);
         Rectangle outputRect = getSlotBounds(0, 2, contentStartX, contentStartY);
 
-
         Stroke oldStroke = g2.getStroke();
         g2.setColor(new Color(235, 185, 45, 210));
         g2.setStroke(new BasicStroke(2.5f));
         g2.drawRoundRect(outputRect.x - 4, outputRect.y - 4, outputRect.width + 8, outputRect.height + 8, 8, 8);
         g2.setStroke(oldStroke);
-
 
         g2.setFont(new Font("SansSerif", Font.BOLD, 12));
         g2.setColor(new Color(220, 220, 220));
@@ -169,11 +167,9 @@ public class FurnaceBlock extends FunctionalBlock {
         g2.setColor(new Color(255, 215, 90));
         g2.drawString("Output", outputRect.x + 4, outputRect.y - 7);
 
-
         int flameCenterX = inputRect.x + slotSize / 2;
         int flameCenterY = (inputRect.y + slotSize + fuelRect.y) / 2;
         drawFlameIndicator(g2, flameCenterX, flameCenterY, smeltProgress > 0);
-
 
         float ratio = (float) smeltProgress / SMELT_TIME_TICKS;
         int arrowX = inputRect.x + slotSize + 24;
@@ -181,7 +177,6 @@ public class FurnaceBlock extends FunctionalBlock {
         int arrowW = outputRect.x - arrowX - 22;
         int arrowH = 24;
         drawSmeltingArrow(g2, arrowX, arrowY, arrowW, arrowH, ratio);
-
 
         Item input = blockInventory.getItem(0, 0);
         TileType resultType = getSmeltResult(input != null ? input.getTileType() : null);
@@ -215,7 +210,6 @@ public class FurnaceBlock extends FunctionalBlock {
         }
 
         int flicker = (int) ((System.currentTimeMillis() / 110) % 3);
-
         g2.setColor(new Color(255, 95, 20));
         g2.fillRect(x + 4, y + 10, 16, 10);
         g2.fillRect(x + 6, y + 5 + flicker, 4, 6);
@@ -233,35 +227,29 @@ public class FurnaceBlock extends FunctionalBlock {
         int shaftHeight = 10;
         int shaftY = y + (height - shaftHeight) / 2;
 
-        Polygon arrowPolygon = new Polygon();
-        arrowPolygon.addPoint(x, shaftY);
-        arrowPolygon.addPoint(x + shaftWidth, shaftY);
-        arrowPolygon.addPoint(x + shaftWidth, y);
-        arrowPolygon.addPoint(x + width, y + height / 2);
-        arrowPolygon.addPoint(x + shaftWidth, y + height);
-        arrowPolygon.addPoint(x + shaftWidth, shaftY + shaftHeight);
-        arrowPolygon.addPoint(x, shaftY + shaftHeight);
-
         g2.setColor(new Color(30, 30, 35, 230));
-        g2.fillPolygon(arrowPolygon);
+        g2.fillRect(x, shaftY, shaftWidth, shaftHeight);
+
+        Polygon head = new Polygon();
+        head.addPoint(x + shaftWidth, y);
+        head.addPoint(x + width, y + height / 2);
+        head.addPoint(x + shaftWidth, y + height);
+        g2.fillPolygon(head);
 
         if (ratio > 0f) {
             Shape oldClip = g2.getClip();
             int fillW = Math.max(1, (int) (width * Math.min(1f, ratio)));
             g2.clipRect(x, y, fillW, height);
 
-            GradientPaint gp = new GradientPaint(
-                    x, y, new Color(255, 120, 20),
-                    x + width, y, new Color(255, 220, 50)
-            );
-            Paint oldPaint = g2.getPaint();
-            g2.setPaint(gp);
-            g2.fillPolygon(arrowPolygon);
-            g2.setPaint(oldPaint);
+            g2.setColor(new Color(255, 180, 40));
+            g2.fillRect(x, shaftY, shaftWidth, shaftHeight);
+            g2.fillPolygon(head);
+
             g2.setClip(oldClip);
         }
 
         g2.setColor(new Color(120, 120, 130));
-        g2.drawPolygon(arrowPolygon);
+        g2.drawRect(x, shaftY, shaftWidth, shaftHeight);
+        g2.drawPolygon(head);
     }
 }

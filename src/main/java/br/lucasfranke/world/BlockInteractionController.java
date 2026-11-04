@@ -117,7 +117,6 @@ public class BlockInteractionController {
                 targetTile = currentBg;
                 targetIsBg = true;
             } else if (canBreakFg && !currentFg.isFunctional()) {
-                // Não remove o bloco funcional da frente ao minerar no modo background
                 targetTile = currentFg;
             }
         } else {
@@ -286,10 +285,23 @@ public class BlockInteractionController {
         if (world.getBackgroundBlock(tileX, tileY) != TileType.AIR) {
             return true;
         }
-        if (world.isSolid(tileX, tileY + 1)) {
+        return world.isSolid(tileX, tileY + 1);
+    }
+
+    private boolean hasFunctionalBlockSupport(int tileX, int tileY) {
+        if (world.getBackgroundBlock(tileX, tileY) != TileType.AIR) {
             return true;
         }
-        return world.isSolid(tileX - 1, tileY) || world.isSolid(tileX + 1, tileY);
+
+        return isSolidOrFunctional(tileX, tileY + 1)
+                || isSolidOrFunctional(tileX, tileY - 1)
+                || isSolidOrFunctional(tileX - 1, tileY)
+                || isSolidOrFunctional(tileX + 1, tileY);
+    }
+
+    private boolean isSolidOrFunctional(int tx, int ty) {
+        TileType block = world.getBlock(tx, ty);
+        return block.isSolid() || block.isFunctional();
     }
 
     private boolean handlePlaceClick(Player player, int tileX, int tileY, boolean backgroundMode) {
@@ -311,6 +323,7 @@ public class BlockInteractionController {
             if (bgVariant != TileType.AIR) {
                 boolean isEmptySky = (currentBg == TileType.AIR);
                 boolean isReplacingNaturalBg = (currentBg == naturalBg && currentBg != bgVariant);
+
                 if (isEmptySky || isReplacingNaturalBg) {
                     world.setBackgroundBlock(tileX, tileY, bgVariant);
                     consumeSelectedItem(player, selectedItem);
@@ -330,6 +343,10 @@ public class BlockInteractionController {
             }
         } else if (tileToPlace == TileType.OAK_SAPLING) {
             if (backgroundMode || !hasSaplingSupport(tileX, tileY)) {
+                return false;
+            }
+        } else if (tileToPlace.isFunctional()) {
+            if (!hasFunctionalBlockSupport(tileX, tileY)) {
                 return false;
             }
         }

@@ -1,5 +1,6 @@
 package br.lucasfranke.model.item;
 
+import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.type.TileType;
 
@@ -10,8 +11,8 @@ import java.util.Map;
 
 public class Item {
 
-    private static final int ICON_CANVAS_SIZE = 64;
-    private static final Font QUANTITY_FONT = new Font("SansSerif", Font.BOLD, 18);
+    private static final int ICON_CANVAS_SIZE = EnginePanel.tileSquare - 10;
+    private static final Font QUANTITY_FONT = new Font("SansSerif", Font.BOLD, 13);
 
     private TileType tileType;
     private int quantity;

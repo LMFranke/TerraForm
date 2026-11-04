@@ -11,6 +11,7 @@ import br.lucasfranke.ui.InventoryUI;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
 
 public class CraftingTableBlock extends FunctionalBlock {
 
@@ -24,6 +25,9 @@ public class CraftingTableBlock extends FunctionalBlock {
     private static final int ARROW_HEIGHT = 24;
 
     private final boolean personalHandCrafting;
+
+    private static BufferedImage cachedActiveArrow;
+    private static BufferedImage cachedInactiveArrow;
 
     public CraftingTableBlock(int worldX, int worldY) {
         this(worldX, worldY, false);
@@ -85,30 +89,29 @@ public class CraftingTableBlock extends FunctionalBlock {
         int slotSize = blockInventory.getSlotSize();
         int gridW = blockInventory.getCols() * slotSize;
         int gridH = blockInventory.getRows() * slotSize;
-
         int gridX = contentStartX + LEFT_PADDING;
         int gridY = contentStartY + TOP_PADDING;
 
         Rectangle outputRect = getOutputSlotBounds(contentStartX, contentStartY);
         Item preview = findMatchingRecipeResult();
-
         int mouseX = MouseManager.getX();
         int mouseY = MouseManager.getY();
         boolean outputHovered = outputRect.contains(mouseX, mouseY);
 
-
         g2.setFont(new Font("SansSerif", Font.BOLD, 12));
         g2.setColor(new Color(220, 220, 220));
         g2.drawString("Input", gridX + 2, gridY - 6);
-
         g2.setColor(new Color(255, 215, 90));
         g2.drawString("Output", outputRect.x + 4, outputRect.y - 7);
 
-
         int arrowX = gridX + gridW + ARROW_GAP;
         int arrowY = gridY + (gridH - ARROW_HEIGHT) / 2;
-        drawCraftingArrow(g2, arrowX, arrowY, ARROW_WIDTH, ARROW_HEIGHT, preview != null);
 
+        if (cachedActiveArrow == null) {
+            cachedActiveArrow = renderArrowToImage(ARROW_WIDTH, ARROW_HEIGHT, true);
+            cachedInactiveArrow = renderArrowToImage(ARROW_WIDTH, ARROW_HEIGHT, false);
+        }
+        g2.drawImage(preview != null ? cachedActiveArrow : cachedInactiveArrow, arrowX, arrowY, null);
 
         InventoryUI.drawBeveledSlot(g2, outputRect.x, outputRect.y, outputRect.width, outputRect.height, outputHovered);
 
@@ -117,7 +120,6 @@ public class CraftingTableBlock extends FunctionalBlock {
         g2.setStroke(new BasicStroke(2.5f));
         g2.drawRoundRect(outputRect.x - 4, outputRect.y - 4, outputRect.width + 8, outputRect.height + 8, 8, 8);
         g2.setStroke(oldStroke);
-
 
         if (preview != null && preview.getTileType().getSprite() != null) {
             int offSet = 10;
@@ -129,6 +131,44 @@ public class CraftingTableBlock extends FunctionalBlock {
         if (outputHovered) {
             InventoryUI.drawSlotHoverOutline(g2, outputRect.x, outputRect.y, outputRect.width, outputRect.height);
         }
+    }
+
+    private BufferedImage renderArrowToImage(int width, int height, boolean active) {
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = img.createGraphics();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        int headLength = 15;
+        int shaftWidth = width - headLength;
+        int shaftHeight = 10;
+        int shaftY = (height - shaftHeight) / 2;
+
+        Polygon arrow = new Polygon();
+        arrow.addPoint(0, shaftY);
+        arrow.addPoint(shaftWidth, shaftY);
+        arrow.addPoint(shaftWidth, 0);
+        arrow.addPoint(width, height / 2);
+        arrow.addPoint(shaftWidth, height);
+        arrow.addPoint(shaftWidth, shaftY + shaftHeight);
+        arrow.addPoint(0, shaftY + shaftHeight);
+
+        if (active) {
+            GradientPaint gp = new GradientPaint(
+                    0, 0, new Color(46, 160, 95),
+                    width, 0, new Color(110, 235, 145)
+            );
+            g2.setPaint(gp);
+            g2.fillPolygon(arrow);
+            g2.setColor(new Color(210, 255, 220));
+        } else {
+            g2.setColor(new Color(30, 30, 35, 230));
+            g2.fillPolygon(arrow);
+            g2.setColor(new Color(120, 120, 130));
+        }
+        g2.setStroke(new BasicStroke(1.5f));
+        g2.drawPolygon(arrow);
+        g2.dispose();
+        return img;
     }
 
     private void drawCraftingArrow(Graphics2D g2, int x, int y, int width, int height, boolean active) {
