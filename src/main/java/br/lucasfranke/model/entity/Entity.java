@@ -113,9 +113,9 @@ public abstract class Entity {
     public boolean collidesAt(World world, double testX, double testY) {
         int tileSize = EnginePanel.tileSquare;
         int leftTile = (int) Math.floor(testX / tileSize);
-        int rightTile = (int) Math.floor((testX + width - 1) / tileSize);
+        int rightTile = (int) Math.floor((testX + width - 0.001) / tileSize);
         int topTile = (int) Math.floor(testY / tileSize);
-        int bottomTile = (int) Math.floor((testY + height - 1) / tileSize);
+        int bottomTile = (int) Math.floor((testY + height - 0.001) / tileSize);
 
         for (int ty = topTile; ty <= bottomTile; ty++) {
             for (int tx = leftTile; tx <= rightTile; tx++) {

@@ -45,4 +45,9 @@ public class DayNightCycle {
         String period = (timeOfDay >= 6.0 && timeOfDay < 18.0) ? "Day" : "Night";
         return String.format("%02d:%02d (%s)", hours, minutes, period);
     }
+
+    public double getTimeOfDay() {
+        return timeOfDay;
+    }
+
 }

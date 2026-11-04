@@ -41,6 +41,8 @@ public class WorldManager {
         int playerTileX = (int) (EnginePanel.player.worldX / EnginePanel.tileSquare);
         int playerChunkX = world.toChunkX(playerTileX);
 
+        renderer.update();
+
         dayNightCycle.update(world.getLighting(), playerChunkX);
         world.updateActiveFunctionalBlocks(playerChunkX, 4);
         world.getFlora().updateNaturalLeaves(playerChunkX, 4);
@@ -50,7 +52,7 @@ public class WorldManager {
     }
 
     public void draw(Graphics2D g2) {
-        renderer.draw(g2, world, EnginePanel.player, interactionController);
+        renderer.draw(g2, world, EnginePanel.player, interactionController, dayNightCycle.getTimeOfDay());
         entityManager.draw(g2, EnginePanel.player, renderer);
     }
 

@@ -25,6 +25,7 @@ public class WorldRenderer {
     private static final int TORCH_HAND_LIGHT_INTENSITY = 14;
 
     private Integer cachedTorchBottomOffset = null;
+    private ParallaxBackground parallaxBackground;
 
     private final Map<BufferedImage, BufferedImage[]> shadedSpriteCache = new IdentityHashMap<>();
 
@@ -35,12 +36,24 @@ public class WorldRenderer {
         }
     }
 
-    public void draw(Graphics2D g2, World world, Player player, BlockInteractionController interaction) {
+    public void update() {
+        if (parallaxBackground != null) {
+            parallaxBackground.update();
+        }
+    }
+
+    public void draw(Graphics2D g2, World world, Player player, BlockInteractionController interaction, double timeOfDay) {
+        if (parallaxBackground == null) {
+            parallaxBackground = new ParallaxBackground(world.getSeed());
+        }
+
         int tileSize = EnginePanel.tileSquare;
-        int playerWorldX = (int) player.worldX;
-        int playerWorldY = (int) player.worldY;
+        int playerWorldX = (int) Math.round(player.worldX);
+        int playerWorldY = (int) Math.round(player.worldY);
         int playerScreenX = player.playerX;
         int playerScreenY = player.playerY;
+
+        parallaxBackground.draw(g2, world, playerWorldX, playerWorldY, timeOfDay);
 
         int playerTileX = (playerWorldX + player.width / 2) / tileSize;
         int playerTileY = (playerWorldY + player.height / 2) / tileSize;
@@ -63,18 +76,16 @@ public class WorldRenderer {
                 TileType fgTile = world.getBlock(col, row);
                 TileType bgTile = world.getBackgroundBlock(col, row);
 
+                if (fgTile == TileType.AIR && bgTile == TileType.AIR) {
+                    continue;
+                }
+
                 int finalLight = calculateTileLight(world, col, row, playerTileX, playerTileY, activeLightRadius, activeLightIntensity);
 
                 int screenX = (col * tileSize) - playerWorldX + playerScreenX;
                 int screenY = (row * tileSize) - playerWorldY + playerScreenY;
 
                 if (!fgTile.isSolid() || hasTransparentPixels(fgTile)) {
-                    if (bgTile == TileType.AIR || hasTransparentPixels(bgTile)) {
-                        g2.setColor(SKY_COLOR);
-                        g2.fillRect(screenX, screenY, tileSize, tileSize);
-                        applyShadow(g2, screenX, screenY, tileSize, world.getLighting().getSunLightLevel());
-                    }
-
                     if (bgTile != TileType.AIR && bgTile.getSprite() != null) {
                         if (hasTransparentPixels(bgTile)) {
                             drawShadedSprite(g2, bgTile.getSprite(), screenX, screenY, tileSize, finalLight);

@@ -9,7 +9,9 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Supplier;
 
 public class Assets {
@@ -34,6 +36,10 @@ public class Assets {
 
     public static BufferedImage furnaceOffSprite;
     public static BufferedImage[] furnaceOnFrames;
+
+    public static BufferedImage bgMountainsFar;
+    public static BufferedImage bgMountainsNear;
+    public static BufferedImage[] bgCloudModels;
 
     public static void init() {
         int size = EnginePanel.tileOriginalSquare;
@@ -94,6 +100,7 @@ public class Assets {
         TileType.CRAFTING_TABLE.setSprite(loadOrGenerate("src/main/resources/image/tiles/craftingTableTile.png", () -> createCraftingTableTexture(size, size)));
 
         initFurnaceSprites(size);
+        initBackgroundAssets();
 
         playerWalkRight = new BufferedImage[]{load("src/main/resources/image/player/boy_right_1.png"), load("src/main/resources/image/player/boy_right_2.png")};
         playerWalkLeft = new BufferedImage[]{load("src/main/resources/image/player/boy_left_1.png"), load("src/main/resources/image/player/boy_left_2.png")};
@@ -182,6 +189,44 @@ public class Assets {
             }
         }
         TileType.FURNACE.setSprite(furnaceOffSprite);
+    }
+
+    private static void initBackgroundAssets() {
+        bgMountainsFar = load("src/main/resources/image/background/background-far-montains.png");
+        bgMountainsNear = load("src/main/resources/image/background/background-near-montains.png");
+
+        List<BufferedImage> loadedClouds = new ArrayList<>();
+        for (int i = 1; i <= 9; i++) {
+            File cloudFile = new File("src/main/resources/image/background/cloud_" + i + ".png");
+            if (cloudFile.exists()) {
+                try {
+                    BufferedImage img = ImageIO.read(cloudFile);
+                    if (img != null) {
+                        loadedClouds.add(img);
+                    }
+                } catch (IOException ignored) {
+                }
+            }
+        }
+
+        if (loadedClouds.isEmpty()) {
+            loadedClouds.add(createFallbackCloudModel(36, 14));
+            loadedClouds.add(createFallbackCloudModel(52, 18));
+            loadedClouds.add(createFallbackCloudModel(28, 12));
+        }
+        bgCloudModels = loadedClouds.toArray(new BufferedImage[0]);
+    }
+
+    private static BufferedImage createFallbackCloudModel(int w, int h) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(new Color(210, 225, 245, 200));
+        g.fillRoundRect(2, 4, w - 4, h - 5, 4, 4);
+        g.setColor(new Color(255, 255, 255, 220));
+        g.fillRoundRect(4, 2, w - 8, h - 6, 4, 4);
+        g.fillRoundRect(w / 4, 0, w / 2, h - 5, 4, 4);
+        g.dispose();
+        return img;
     }
 
     private static long calculateWarmthScore(BufferedImage img) {

@@ -9,11 +9,11 @@ import br.lucasfranke.world.WorldManager;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class EnginePanel extends JPanel implements Runnable {
 
     private Thread thread;
-
     public static final int tileOriginalSquare = 16;
     public static final int scale = 3;
     public static final int tileSquare = tileOriginalSquare * scale;
@@ -36,6 +36,11 @@ public class EnginePanel extends JPanel implements Runnable {
 
     private final KeyManager keyManager;
     private final MouseManager mouseManager;
+
+    private final AtomicInteger renderedFramesCounter = new AtomicInteger(0);
+    private volatile int currentFps = 0;
+    private volatile int currentUps = 0;
+    private volatile double lastRenderTimeMs = 0.0;
 
     public EnginePanel() {
         this.keyManager = new KeyManager();
@@ -65,16 +70,15 @@ public class EnginePanel extends JPanel implements Runnable {
         final int UPS = 60;
         final double timePerUpdate = 1000000000.0 / UPS;
 
-        final int FPS = 200;
+        final int FPS = 60;
         final double timePerFrame = 1000000000.0 / FPS;
 
         long previousTime = System.nanoTime();
         double deltaU = 0;
         double deltaF = 0;
 
-        int frames = 0;
         int uFrames = 0;
-        double time = System.currentTimeMillis();
+        long timer = System.currentTimeMillis();
 
         player.linkManagers(worldManager);
         worldManager.spawnPlayerOnGround();
@@ -87,26 +91,35 @@ public class EnginePanel extends JPanel implements Runnable {
             deltaU += elapsedTime / timePerUpdate;
             deltaF += elapsedTime / timePerFrame;
 
+            boolean didWork = false;
+
             while (deltaU >= 1) {
                 update();
                 deltaU--;
                 uFrames++;
+                didWork = true;
             }
 
             if (deltaF >= 1) {
                 repaint();
                 deltaF--;
-                frames++;
+                didWork = true;
             }
 
-            if(System.currentTimeMillis() - time >= 1000) {
-                System.out.println("fps:" + frames);
-                System.out.println("ups:" + uFrames);
-                time += 1000;
-                frames = 0;
+            if (System.currentTimeMillis() - timer >= 1000) {
+                currentFps = renderedFramesCounter.getAndSet(0);
+                currentUps = uFrames;
                 uFrames = 0;
+                timer += 1000;
             }
 
+            if (!didWork) {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
     }
 
@@ -118,6 +131,8 @@ public class EnginePanel extends JPanel implements Runnable {
 
     @Override
     protected void paintComponent(Graphics g) {
+        long renderStartNano = System.nanoTime();
+
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
 
@@ -125,11 +140,33 @@ public class EnginePanel extends JPanel implements Runnable {
         player.draw(g2d);
         uiManager.draw(g2d, WIDTH, HEIGHT);
 
-        g2d.setColor(Color.WHITE);
-        g2d.setFont(new Font("Arial", Font.BOLD, 16));
-        g2d.drawString("X: " + (int) (player.worldX / tileSquare), 10, 20);
-        g2d.drawString("Y: " + (int) (player.worldY / tileSquare), 10, 38);
-        g2d.drawString("Hour: " + worldManager.getFormattedTime() + " | Sun light: " + worldManager.world.getLighting().getSunLightLevel() + " [H: +1h]", 10, 56);
+        lastRenderTimeMs = (System.nanoTime() - renderStartNano) / 1_000_000.0;
+        renderedFramesCounter.incrementAndGet();
+
+        drawDebugHUD(g2d);
     }
 
+    private void drawDebugHUD(Graphics2D g2d) {
+        g2d.setColor(new Color(0, 0, 0, 120));
+        g2d.fillRoundRect(6, 4, 330, 76, 8, 8);
+
+        g2d.setFont(new Font("Arial", Font.BOLD, 15));
+        g2d.setColor(Color.WHITE);
+        g2d.drawString("X: " + (int) (player.worldX / tileSquare)
+                + "  |  Y: " + (int) (player.worldY / tileSquare), 12, 22);
+        g2d.drawString("Hour: " + worldManager.getFormattedTime()
+                + " | Light: " + worldManager.world.getLighting().getSunLightLevel() + " [H: +1h]", 12, 44);
+
+        if (currentFps >= 55) {
+            g2d.setColor(new Color(100, 255, 120));
+        } else if (currentFps >= 30) {
+            g2d.setColor(new Color(255, 215, 80));
+        } else {
+            g2d.setColor(new Color(255, 85, 85));
+        }
+
+        String perfText = String.format("FPS: %d  |  UPS: %d  (Render: %.1f ms)",
+                currentFps, currentUps, lastRenderTimeMs);
+        g2d.drawString(perfText, 12, 66);
+    }
 }
