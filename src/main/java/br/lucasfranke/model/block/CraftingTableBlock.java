@@ -284,6 +284,10 @@ public class CraftingTableBlock extends FunctionalBlock {
             return new Item(TileType.FURNACE, 1);
         }
 
+        if (ironCount == 3 && totalOccupied == 3) {
+            return new Item(TileType.BUCKET, 1);
+        }
+
 
         if (!personalHandCrafting) {
             Item woodTool = matchToolForMaterial(planksCount + woodCount, stickCount, totalOccupied,

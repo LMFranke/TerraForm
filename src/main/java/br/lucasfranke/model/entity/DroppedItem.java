@@ -66,10 +66,17 @@ public class DroppedItem extends Entity {
             return;
         }
 
+        boolean inWater = isInWater(world);
         if (!magnetized) {
-            fallSpeed += gravity;
-            if (fallSpeed > maxFallSpeed) {
-                fallSpeed = maxFallSpeed;
+            if (inWater) {
+                double[] flow = world.getFluid().getWaterFlowForce(getBounds());
+                vx = vx * 0.92 + flow[0] * 0.65;
+                fallSpeed = Math.min(fallSpeed + 0.04 + flow[1] * 0.05, 1.2);
+            } else {
+                fallSpeed += gravity;
+                if (fallSpeed > maxFallSpeed) {
+                    fallSpeed = maxFallSpeed;
+                }
             }
         }
 
@@ -81,18 +88,18 @@ public class DroppedItem extends Entity {
         }
 
         if (!isFalling) {
-            if (previousVy > 3.2 && !magnetized) {
+            if (previousVy > 3.2 && !magnetized && !inWater) {
                 fallSpeed = -previousVy * 0.30;
                 isFalling = true;
                 vx *= 0.75;
             } else {
-                vx *= 0.72;
-                if (Math.abs(vx) < 0.05) {
+                vx *= inWater ? 0.95 : 0.72;
+                if (Math.abs(vx) < 0.02) {
                     vx = 0;
                 }
             }
         } else if (!magnetized) {
-            vx *= 0.96;
+            vx *= inWater ? 0.97 : 0.96;
         }
     }
 

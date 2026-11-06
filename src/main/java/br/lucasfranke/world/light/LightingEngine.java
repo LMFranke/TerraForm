@@ -84,7 +84,7 @@ public class LightingEngine {
             for (int row = 0; row < height; row++) {
                 TileType tile = blockRegion[row][col];
                 if (tile != null && !tile.isSolid()) {
-                    if (tile == TileType.OAK_LEAVES) {
+                    if (tile == TileType.OAK_LEAVES || tile == TileType.WATER) {
                         currentSunLight = Math.max(MIN_NIGHT_LIGHT_LEVEL, currentSunLight - 1);
                     }
                     if (lightRegion[row][col] < currentSunLight) {

@@ -26,6 +26,7 @@ public class HotBar implements ItemContainer {
         slots[0][3] = new Item(TileType.FURNACE, 10);
         slots[0][4] = new Item(TileType.CRAFTING_TABLE, 10);
         slots[0][5] = new Item(TileType.WOODEN_PICKAXE, 1);
+        slots[0][6] = new Item(TileType.BUCKET, 1);
     }
 
     @Override

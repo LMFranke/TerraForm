@@ -4,6 +4,7 @@ import br.lucasfranke.EnginePanel;
 import br.lucasfranke.inventory.HotBar;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
+import br.lucasfranke.model.type.TileType;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -29,6 +30,7 @@ public class HotBarUI {
         int startY = (int) ((EnginePanel.HEIGHT - hotBar.getRows() * slotSize) * 0.95);
 
         drawPlayerHealthBar(g2, EnginePanel.player, startX, startY - 64, totalSlotsW);
+        drawPlayerOxygenBar(g2, EnginePanel.player, startX, startY - 84);
 
         if (cachedBarBackground == null || cachedTotalWidth != totalSlotsW) {
             cachedTotalWidth = totalSlotsW;
@@ -130,6 +132,43 @@ public class HotBarUI {
         }
     }
 
+    private void drawPlayerOxygenBar(Graphics2D g2, Player player, int startX, int barY) {
+        if (player == null || EnginePanel.worldManager == null) return;
+        boolean submerged = player.isHeadSubmerged(EnginePanel.worldManager.world);
+        if (!submerged && player.oxygen >= player.maxOxygen) {
+            return;
+        }
+
+        int bubbles = 10;
+        int bubbleSize = 14;
+        int gap = 4;
+        int ticksPerBubble = player.maxOxygen / bubbles; // 60 ticks por bolha
+
+        for (int i = 0; i < bubbles; i++) {
+            int bx = startX + i * (bubbleSize + gap);
+            int fullThreshold = (i + 1) * ticksPerBubble;
+            int halfThreshold = i * ticksPerBubble + (ticksPerBubble / 2);
+
+            g2.setColor(new Color(18, 24, 34, 210));
+            g2.fillOval(bx - 1, barY - 1, bubbleSize + 2, bubbleSize + 2);
+
+            if (player.oxygen >= fullThreshold) {
+                g2.setColor(new Color(45, 175, 245, 235));
+                g2.fillOval(bx, barY, bubbleSize, bubbleSize);
+                g2.setColor(new Color(200, 245, 255));
+                g2.fillRect(bx + 3, barY + 3, 3, 3);
+            } else if (player.oxygen >= halfThreshold) {
+                g2.setColor(new Color(45, 175, 245, 170));
+                g2.fillOval(bx + 2, barY + 2, bubbleSize - 4, bubbleSize - 4);
+                g2.setColor(new Color(190, 240, 255, 200));
+                g2.fillRect(bx + 4, barY + 4, 2, 2);
+            } else {
+                g2.setColor(new Color(55, 70, 90, 170));
+                g2.drawOval(bx + 1, barY + 1, bubbleSize - 2, bubbleSize - 2);
+            }
+        }
+    }
+
     private void drawSelectedItemLabel(Graphics2D g2, Item selected, int hotBarY) {
         String label = selected.getTileType().name().replace('_', ' ');
         if (selected.isTool()) {
@@ -140,6 +179,10 @@ public class HotBarUI {
                     selected.getTileType().getToolTier().getEfficiencyMultiplier());
         } else if (selected.getTileType().isFood()) {
             label += String.format("     +%d HP (Right Click)", selected.getTileType().getFoodHealAmount());
+        } else if (selected.getTileType() == TileType.BUCKET) {
+            label += "     Right Click Water to Collect";
+        } else if (selected.getTileType() == TileType.WATER_BUCKET) {
+            label += "     Right Click to Place Water";
         }
 
         g2.setFont(new Font("SansSerif", Font.BOLD, 13));

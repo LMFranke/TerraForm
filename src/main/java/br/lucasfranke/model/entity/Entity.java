@@ -22,6 +22,7 @@ public abstract class Entity {
     public int width;
     public int height;
     public int speed;
+
     protected Direction direction = Direction.RIGHT;
 
     public int maxHealth = 20;
@@ -84,6 +85,44 @@ public abstract class Entity {
 
     public Rectangle getBounds() {
         return new Rectangle((int) Math.round(worldX), (int) Math.round(worldY), width, height);
+    }
+
+    public boolean isInWater(World world) {
+        if (world == null) return false;
+        int tileSize = EnginePanel.tileSquare;
+        int leftTile = (int) Math.floor((worldX + 2) / tileSize);
+        int rightTile = (int) Math.floor((worldX + width - 3) / tileSize);
+        int topTile = (int) Math.floor((worldY + 2) / tileSize);
+        int bottomTile = (int) Math.floor((worldY + height - 2) / tileSize);
+
+        for (int ty = topTile; ty <= bottomTile; ty++) {
+            if (!world.isValidY(ty)) continue;
+            for (int tx = leftTile; tx <= rightTile; tx++) {
+                int level = world.getWaterLevel(tx, ty);
+                if (level > 0) {
+                    int surfaceY = world.getFluid().getWaterSurfaceWorldY(tx, ty);
+                    if (worldY + height > surfaceY + 2) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isHeadSubmerged(World world) {
+        if (world == null) return false;
+        int tileSize = EnginePanel.tileSquare;
+        double eyeX = getCenterX();
+        double eyeY = worldY + Math.min(10.0, height * 0.24);
+        int tx = (int) Math.floor(eyeX / tileSize);
+        int ty = (int) Math.floor(eyeY / tileSize);
+        if (!world.isValidY(ty)) return false;
+
+        int level = world.getWaterLevel(tx, ty);
+        if (level <= 0) return false;
+        int surfaceY = world.getFluid().getWaterSurfaceWorldY(tx, ty);
+        return eyeY >= surfaceY;
     }
 
     public void moveWithCollision(World world, double dx, double dy) {

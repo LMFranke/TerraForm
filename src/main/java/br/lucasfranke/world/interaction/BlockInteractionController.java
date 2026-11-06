@@ -307,17 +307,35 @@ public class BlockInteractionController {
         if (selectedItem == null || selectedItem.getQuantity() <= 0) {
             return false;
         }
+        TileType heldType = selectedItem.getTileType();
 
-        TileType tileToPlace = selectedItem.getTileType();
-        if (!tileToPlace.isPlaceable()) {
+        if (heldType == TileType.BUCKET) {
+            if (world.getFluid().collectWaterSource(tileX, tileY)) {
+                replaceOrAddBucketItem(player, selectedItem, TileType.WATER_BUCKET);
+                EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
+                return true;
+            }
+            return false;
+        }
+
+        if (heldType == TileType.WATER_BUCKET) {
+            if (world.getFluid().placeWaterSource(tileX, tileY)) {
+                replaceOrAddBucketItem(player, selectedItem, TileType.BUCKET);
+                EnginePanel.soundManager.playSound(Sound.ITEM_PICKUP);
+                return true;
+            }
+            return false;
+        }
+
+        if (!heldType.isPlaceable()) {
             return false;
         }
 
         TileType currentBg = world.getBackgroundBlock(tileX, tileY);
         TileType naturalBg = world.getNaturalBackgroundBlock(tileX, tileY);
 
-        if (backgroundMode && tileToPlace != TileType.TORCH) {
-            TileType bgVariant = tileToPlace.getBackgroundVariant();
+        if (backgroundMode && heldType != TileType.TORCH) {
+            TileType bgVariant = heldType.getBackgroundVariant();
             if (bgVariant != TileType.AIR) {
                 boolean isEmptySky = (currentBg == TileType.AIR);
                 boolean isReplacingNaturalBg = (currentBg == naturalBg && currentBg != bgVariant);
@@ -331,31 +349,47 @@ public class BlockInteractionController {
             return false;
         }
 
-        if (world.getBlock(tileX, tileY) != TileType.AIR) {
+        TileType existingFg = world.getBlock(tileX, tileY);
+        if (existingFg != TileType.AIR && existingFg != TileType.WATER) {
+            return false;
+        }
+        if (existingFg == TileType.WATER && (heldType == TileType.TORCH || heldType == TileType.OAK_SAPLING)) {
             return false;
         }
 
-        if (tileToPlace == TileType.TORCH) {
+        if (heldType == TileType.TORCH) {
             if (!hasTorchSupport(tileX, tileY)) {
                 return false;
             }
-        } else if (tileToPlace == TileType.OAK_SAPLING) {
+        } else if (heldType == TileType.OAK_SAPLING) {
             if (backgroundMode || !hasSaplingSupport(tileX, tileY)) {
                 return false;
             }
-        } else if (tileToPlace.isFunctional()) {
+        } else if (heldType.isFunctional()) {
             if (!hasFunctionalBlockSupport(tileX, tileY)) {
                 return false;
             }
         }
 
-        if (tileToPlace.isSolid() && intersectsPlayer(player, tileX, tileY)) {
+        if (heldType.isSolid() && intersectsPlayer(player, tileX, tileY)) {
             return false;
         }
 
-        world.setBlock(tileX, tileY, tileToPlace);
+        world.setBlock(tileX, tileY, heldType);
         consumeSelectedItem(player, selectedItem);
         return true;
+    }
+
+    private void replaceOrAddBucketItem(Player player, Item selectedItem, TileType targetBucketType) {
+        if (selectedItem.getQuantity() <= 1) {
+            player.hotBar.setItem(0, player.hotBar.getSelectedSlot(), new Item(targetBucketType, 1));
+        } else {
+            selectedItem.decreaseQuantity();
+            Item filledOrEmpty = new Item(targetBucketType, 1);
+            if (!player.addItem(filledOrEmpty)) {
+                player.dropItem(filledOrEmpty);
+            }
+        }
     }
 
     private boolean intersectsPlayer(Player player, int tileX, int tileY) {

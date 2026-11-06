@@ -92,7 +92,7 @@ public class Item {
     }
 
     public int getMaxStackSize() {
-        return isTool() ? 1 : Player.MAX_STACK_SIZE;
+        return (isTool() || tileType == TileType.WATER_BUCKET) ? 1 : Player.MAX_STACK_SIZE;
     }
 
     public boolean damage(int amount) {

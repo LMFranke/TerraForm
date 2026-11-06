@@ -4,6 +4,7 @@ import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.type.TileType;
 import br.lucasfranke.world.Chunk;
 import br.lucasfranke.world.flora.TreeFeature;
+import br.lucasfranke.world.fluid.WaterFeature;
 
 public class WorldGenerator {
 
@@ -29,6 +30,7 @@ public class WorldGenerator {
     public Chunk generateChunk(int cx) {
         int height = EnginePanel.CHUNK_HEIGHT;
         int width = EnginePanel.CHUNK_WIDTH;
+
         TileType[][] blocks = new TileType[height][width];
         TileType[][] backgroundBlocks = new TileType[height][width];
         int[] surfaceRows = new int[width];
@@ -41,6 +43,8 @@ public class WorldGenerator {
         generateOres(smoothedBlocks, stoneStartRows, worldXStart);
 
         Chunk chunk = new Chunk(cx, smoothedBlocks, backgroundBlocks);
+        WaterFeature.generateSurfaceLake(chunk, surfaceRows, stoneStartRows, seed);
+        WaterFeature.generateCaveWaterPools(chunk, stoneStartRows, seed);
         generateSurfaceTrees(chunk, surfaceRows, worldXStart);
 
         return chunk;
@@ -165,42 +169,10 @@ public class WorldGenerator {
             int worldX = worldXStart + col;
             int hash = deterministicHash(worldX);
             if ((hash & 0xFF) < 56) {
-                int trunkHeight = 4 + (Math.abs(hash >> 8) % 3); // Height between 4 and 6 tiles
+                int trunkHeight = 4 + (Math.abs(hash >> 8) % 3);
                 TreeFeature.placeInChunk(chunk, col, groundRow - 1, trunkHeight);
                 lastTreeCol = col;
             }
-        }
-    }
-
-    private void placeTreeInBackground(Chunk chunk, int centerCol, int baseRow, int trunkHeight) {
-        int topRow = baseRow - trunkHeight + 1;
-        if (topRow < 3) {
-            return;
-        }
-
-        for (int dy = -2; dy <= 1; dy++) {
-            int leafRow = topRow + dy;
-            if (leafRow < 0 || leafRow >= EnginePanel.CHUNK_HEIGHT) {
-                continue;
-            }
-
-            int radius = (dy == -2) ? 1 : 2;
-            for (int dx = -radius; dx <= radius; dx++) {
-                int leafCol = centerCol + dx;
-                if (leafCol >= 0 && leafCol < EnginePanel.CHUNK_WIDTH) {
-                    if (chunk.blocks[leafRow][leafCol] == TileType.AIR && chunk.backgroundBlocks[leafRow][leafCol] == TileType.AIR) {
-                        if (chunk.blocks[leafRow][leafCol] != TileType.OAK_WOOD) {
-                            chunk.blocks[leafRow][leafCol] = TileType.OAK_LEAVES;
-                        }
-                        chunk.naturalTreeTiles[leafRow][leafCol] = true;
-                    }
-                }
-            }
-        }
-
-        for (int r = baseRow; r >= topRow; r--) {
-            chunk.backgroundBlocks[r][centerCol] = TileType.BACKGROUND_WOOD;
-            chunk.naturalTreeTiles[r][centerCol] = true;
         }
     }
 

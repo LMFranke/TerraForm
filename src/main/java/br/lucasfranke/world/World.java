@@ -4,6 +4,7 @@ import br.lucasfranke.EnginePanel;
 import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.type.TileType;
 import br.lucasfranke.world.flora.FloraManager;
+import br.lucasfranke.world.fluid.FluidManager;
 import br.lucasfranke.world.generation.WorldGenerator;
 import br.lucasfranke.world.light.LightingEngine;
 
@@ -17,12 +18,14 @@ public class World {
     private final WorldGenerator generator;
     private final LightingEngine lighting;
     private final FloraManager flora;
+    private final FluidManager fluid;
 
     public World(long seed) {
         this.seed = seed;
         this.generator = new WorldGenerator(seed);
         this.lighting = new LightingEngine(this);
         this.flora = new FloraManager(this);
+        this.fluid = new FluidManager(this);
     }
 
     public long getSeed() {
@@ -35,6 +38,10 @@ public class World {
 
     public FloraManager getFlora() {
         return flora;
+    }
+
+    public FluidManager getFluid() {
+        return fluid;
     }
 
     public boolean isValidY(int tileY) {
@@ -84,7 +91,26 @@ public class World {
         if (c != null) {
             c.setBlock(tileX, tileY, type);
             flora.onForegroundBlockChanged(tileX, tileY, type);
+            fluid.onBlockChanged(tileX, tileY, type);
         }
+    }
+
+    public int getWaterLevel(int tileX, int tileY) {
+        if (!isValidY(tileY)) return 0;
+        Chunk c = getChunkByTileX(tileX);
+        return c != null ? c.getWaterLevel(tileX, tileY) : 0;
+    }
+
+    public boolean isWaterSource(int tileX, int tileY) {
+        if (!isValidY(tileY)) return false;
+        Chunk c = getChunkByTileX(tileX);
+        return c != null && c.isWaterSource(tileX, tileY);
+    }
+
+    public boolean isWaterFalling(int tileX, int tileY) {
+        if (!isValidY(tileY)) return false;
+        Chunk c = getChunkByTileX(tileX);
+        return c != null && c.isWaterFalling(tileX, tileY);
     }
 
     public TileType getBackgroundBlock(int tileX, int tileY) {

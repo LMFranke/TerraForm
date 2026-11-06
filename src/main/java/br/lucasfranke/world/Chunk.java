@@ -9,12 +9,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Chunk {
+    private static final int WATER_LEVEL_MASK = 0x07;
+    private static final int WATER_SOURCE_BIT = 0x08;
+    private static final int WATER_FALLING_BIT = 0x10;
 
     public final int cx;
     public final TileType[][] blocks;
     public final TileType[][] backgroundBlocks;
     public final TileType[][] originalBackgroundBlocks;
     public final boolean[][] naturalTreeTiles;
+    public final byte[][] waterData;
     public byte[][] lightMap;
     public int lastSunLightLevel = -1;
 
@@ -27,10 +31,43 @@ public class Chunk {
         this.lightMap = new byte[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
         this.originalBackgroundBlocks = new TileType[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
         this.naturalTreeTiles = new boolean[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
+        this.waterData = new byte[EnginePanel.CHUNK_HEIGHT][EnginePanel.CHUNK_WIDTH];
 
         for (int i = 0; i < backgroundBlocks.length; i++) {
             System.arraycopy(backgroundBlocks[i], 0, this.originalBackgroundBlocks[i], 0, backgroundBlocks[i].length);
         }
+    }
+
+    public void setWaterData(int worldX, int worldY, int level, boolean isSource, boolean isFalling) {
+        int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
+        int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
+        int clampedLevel = Math.clamp(level, 0, 6);
+        if (clampedLevel == 0) {
+            waterData[localY][localX] = 0;
+            return;
+        }
+        int packed = clampedLevel;
+        if (isSource) packed |= WATER_SOURCE_BIT;
+        if (isFalling) packed |= WATER_FALLING_BIT;
+        waterData[localY][localX] = (byte) packed;
+    }
+
+    public int getWaterLevel(int worldX, int worldY) {
+        int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
+        int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
+        return waterData[localY][localX] & WATER_LEVEL_MASK;
+    }
+
+    public boolean isWaterSource(int worldX, int worldY) {
+        int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
+        int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
+        return (waterData[localY][localX] & WATER_SOURCE_BIT) != 0;
+    }
+
+    public boolean isWaterFalling(int worldX, int worldY) {
+        int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
+        int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
+        return (waterData[localY][localX] & WATER_FALLING_BIT) != 0;
     }
 
     public void setBlock(int worldX, int worldY, TileType type) {
@@ -40,6 +77,10 @@ public class Chunk {
         int localX = Math.floorMod(worldX, EnginePanel.CHUNK_WIDTH);
         int localY = Math.floorMod(worldY, EnginePanel.CHUNK_HEIGHT);
         blocks[localY][localX] = type;
+
+        if (type != TileType.WATER) {
+            waterData[localY][localX] = 0;
+        }
 
         if (type != TileType.OAK_LEAVES && backgroundBlocks[localY][localX] != TileType.BACKGROUND_WOOD) {
             naturalTreeTiles[localY][localX] = false;

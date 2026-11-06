@@ -43,6 +43,7 @@ public class Assets {
     public static BufferedImage[] bgCloudModels;
 
     public static BufferedImage lootBagSprite;
+    public static Sprite[] waterRowAnimations;
 
     public static void init() {
         int size = EnginePanel.tileOriginalSquare;
@@ -106,6 +107,10 @@ public class Assets {
         initBackgroundAssets();
 
         lootBagSprite = loadOrGenerate("src/main/resources/image/tiles/lootBag.png", () -> createLootBagTexture(size, size));
+
+        initWaterSprites(size);
+        TileType.BUCKET.setSprite(loadOrGenerate("src/main/resources/image/tiles/bucket.png", () -> createBucketTexture(size, size, false)));
+        TileType.WATER_BUCKET.setSprite(loadOrGenerate("src/main/resources/image/tiles/waterBucket.png", () -> createBucketTexture(size, size, true)));
 
         playerWalkRight = new BufferedImage[]{load("src/main/resources/image/player/boy_right_1.png"), load("src/main/resources/image/player/boy_right_2.png")};
         playerWalkLeft = new BufferedImage[]{load("src/main/resources/image/player/boy_left_1.png"), load("src/main/resources/image/player/boy_left_2.png")};
@@ -194,6 +199,100 @@ public class Assets {
             }
         }
         TileType.FURNACE.setSprite(furnaceOffSprite);
+    }
+
+    private static void initWaterSprites(int size) {
+        File file2 = new File("src/main/resources/image/tiles/waterTile_2.png");
+        File file1 = new File("src/main/resources/image/tiles/waterTile.png");
+
+        BufferedImage sheet = null;
+        try {
+            BufferedImage img2 = file2.exists() ? ImageIO.read(file2) : null;
+            BufferedImage img1 = file1.exists() ? ImageIO.read(file1) : null;
+
+            if (img2 != null && img2.getHeight() >= img2.getWidth()) {
+                sheet = img2;
+            } else if (img1 != null && img1.getHeight() >= img1.getWidth()) {
+                sheet = img1;
+            } else if (img2 != null) {
+                sheet = img2;
+            } else {
+                sheet = img1;
+            }
+        } catch (IOException ignored) {
+        }
+
+        if (sheet != null) {
+            int cols = Math.max(1, sheet.getWidth() / size);
+            int rows = Math.max(1, sheet.getHeight() / size);
+
+            if (rows >= cols) {
+                waterRowAnimations = new Sprite[rows];
+                for (int r = 0; r < rows; r++) {
+                    List<BufferedImage> validFrames = new ArrayList<>();
+                    for (int c = 0; c < cols; c++) {
+                        BufferedImage sub = sheet.getSubimage(c * size, r * size, size, size);
+                        if (hasOpaquePixels(sub)) {
+                            validFrames.add(sub);
+                        }
+                    }
+                    if (validFrames.isEmpty()) {
+                        validFrames.add(genericTileSprite);
+                    }
+                    waterRowAnimations[r] = new Sprite(validFrames.toArray(new BufferedImage[0]), 16);
+                }
+            } else {
+                waterRowAnimations = new Sprite[cols + 1];
+
+                List<BufferedImage> deepFrames = new ArrayList<>();
+                if (rows >= 2) {
+                    for (int c = 0; c < cols; c++) {
+                        BufferedImage sub = sheet.getSubimage(c * size, size, size, size);
+                        if (hasOpaquePixels(sub)) {
+                            deepFrames.add(sub);
+                        }
+                    }
+                }
+                if (deepFrames.isEmpty()) {
+                    deepFrames.add(sheet.getSubimage(0, 0, size, size));
+                }
+                waterRowAnimations[0] = new Sprite(deepFrames.toArray(new BufferedImage[0]), 16);
+
+                for (int c = 0; c < cols; c++) {
+                    BufferedImage sub = sheet.getSubimage(c * size, 0, size, size);
+                    waterRowAnimations[c + 1] = new Sprite(new BufferedImage[]{sub}, 16);
+                }
+            }
+
+            Sprite defaultSprite = waterRowAnimations.length > 1 ? waterRowAnimations[1] : waterRowAnimations[0];
+            TileType.WATER.setSprite(defaultSprite.getFrame());
+            return;
+        }
+
+        System.err.println("Spritesheet not found, using generic texture: src/main/resources/image/tiles/waterTile_2.png");
+        waterRowAnimations = new Sprite[]{new Sprite(new BufferedImage[]{genericTileSprite}, 16)};
+        TileType.WATER.setSprite(genericTileSprite);
+    }
+
+    private static boolean hasOpaquePixels(BufferedImage img) {
+        for (int y = 0; y < img.getHeight(); y++) {
+            for (int x = 0; x < img.getWidth(); x++) {
+                if (((img.getRGB(x, y) >>> 24) & 0xFF) > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static void updateWaterAnimations() {
+        if (waterRowAnimations != null) {
+            for (Sprite rowAnim : waterRowAnimations) {
+                if (rowAnim != null) {
+                    rowAnim.update();
+                }
+            }
+        }
     }
 
     private static void initBackgroundAssets() {
@@ -655,6 +754,64 @@ public class Assets {
         g.fillRect(5, 5, 6, 2);
         g.setColor(ropeGold.darker());
         g.fillRect(10, 6, 2, 2);
+
+        g.dispose();
+        return img;
+    }
+
+    private static BufferedImage[] createWaterAnimationFrames(int w, int h) {
+        BufferedImage[] frames = new BufferedImage[4];
+        for (int f = 0; f < 4; f++) {
+            BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = img.createGraphics();
+            g.setColor(new Color(28, 118, 225, 175));
+            g.fillRect(0, 0, w, h);
+
+            g.setColor(new Color(65, 160, 250, 185));
+            for (int y = 2; y < h; y += 5) {
+                int waveX = (f * 4 + y * 2) % w;
+                g.fillRect(waveX, y, Math.min(5, w - waveX), 1);
+                if (waveX + 5 > w) {
+                    g.fillRect(0, y, (waveX + 5) - w, 1);
+                }
+            }
+            g.dispose();
+            frames[f] = img;
+        }
+        return frames;
+    }
+
+    private static BufferedImage createBucketTexture(int w, int h, boolean filledWithWater) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+
+        Color ironDark = new Color(115, 120, 132);
+        Color ironMid = new Color(175, 182, 195);
+        Color ironLight = new Color(225, 232, 245);
+
+        g.setColor(ironDark);
+        g.drawRect(4, 2, 7, 4);
+
+        g.setColor(ironDark);
+        g.fillRect(3, 5, 10, 7);
+        g.fillRect(4, 12, 8, 2);
+
+        g.setColor(ironMid);
+        g.fillRect(4, 6, 8, 6);
+        g.fillRect(5, 12, 6, 1);
+
+        g.setColor(ironLight);
+        g.fillRect(5, 6, 2, 5);
+
+        if (filledWithWater) {
+            g.setColor(new Color(35, 135, 245));
+            g.fillRect(4, 5, 8, 3);
+            g.setColor(new Color(155, 220, 255));
+            g.fillRect(5, 5, 4, 1);
+        } else {
+            g.setColor(new Color(65, 70, 80));
+            g.fillRect(4, 5, 8, 2);
+        }
 
         g.dispose();
         return img;

@@ -57,10 +57,14 @@ public abstract class Mob extends Entity {
         if (panicTicks > 0) {
             panicTicks--;
         }
-
         updateAI(world, player);
 
-        double dx = moveIntentX + knockbackVx;
+        boolean inWater = isInWater(world);
+        double[] flow = inWater ? world.getFluid().getWaterFlowForce(getBounds()) : new double[]{0.0, 0.0};
+
+        double effectiveIntentX = inWater ? (moveIntentX * 0.65) : moveIntentX;
+        double dx = effectiveIntentX + knockbackVx + (flow[0] * 1.45);
+
         if (Math.abs(moveIntentX) > 0.05) {
             direction = moveIntentX > 0 ? Direction.RIGHT : Direction.LEFT;
             state = AnimationState.WALK;
@@ -68,21 +72,44 @@ public abstract class Mob extends Entity {
             state = AnimationState.IDLE;
         }
 
-        fallSpeed += gravity;
-        if (fallSpeed > maxFallSpeed) {
-            fallSpeed = maxFallSpeed;
-        }
+        if (inWater) {
+            int centerTileX = (int) Math.floor(getCenterX() / EnginePanel.tileSquare);
+            int midTileY = (int) Math.floor((worldY + height * 0.55) / EnginePanel.tileSquare);
+            boolean bodySubmerged = world.getWaterLevel(centerTileX, midTileY) > 0 || isHeadSubmerged(world);
 
-        moveWithCollision(world, dx, fallSpeed);
+            if (bodySubmerged) {
+                fallSpeed = Math.max(fallSpeed - 0.34, -2.5);
+                isFalling = true;
+            } else {
+                fallSpeed += 0.08 + flow[1] * 0.05;
+                if (fallSpeed > 2.2) {
+                    fallSpeed = 2.2;
+                }
+            }
 
-        if (hitHorizontalWall && !isFalling && Math.abs(moveIntentX) > 0.05) {
-            fallSpeed = -6.2;
-            isFalling = true;
+            moveWithCollision(world, dx, fallSpeed);
+
+            if (hitHorizontalWall && Math.abs(moveIntentX) > 0.05) {
+                fallSpeed = -4.8;
+                isFalling = true;
+            }
+        } else {
+            fallSpeed += gravity;
+            if (fallSpeed > maxFallSpeed) {
+                fallSpeed = maxFallSpeed;
+            }
+
+            moveWithCollision(world, dx, fallSpeed);
+
+            if (hitHorizontalWall && !isFalling && Math.abs(moveIntentX) > 0.05) {
+                fallSpeed = -6.2;
+                isFalling = true;
+            }
         }
 
         Sprite currentSprite = (direction == Direction.LEFT) ? walkLeftSprite : walkRightSprite;
         if (currentSprite != null) {
-            if (state == AnimationState.WALK) {
+            if (state == AnimationState.WALK || inWater) {
                 currentSprite.update();
             } else {
                 currentSprite.reset();

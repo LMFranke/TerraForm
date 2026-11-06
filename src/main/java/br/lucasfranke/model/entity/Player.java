@@ -1,7 +1,7 @@
 package br.lucasfranke.model.entity;
 
-import br.lucasfranke.graphics.Assets;
 import br.lucasfranke.EnginePanel;
+import br.lucasfranke.graphics.Assets;
 import br.lucasfranke.graphics.Sprite;
 import br.lucasfranke.inventory.HotBar;
 import br.lucasfranke.inventory.Inventory;
@@ -40,6 +40,11 @@ public class Player extends Entity {
     public Inventory inventory;
     public HotBar hotBar;
     public final CraftingTableBlock personalCrafting;
+
+    public int maxOxygen = 600;
+    public int oxygen = maxOxygen;
+    private int drownDamageTimer = 0;
+    private boolean wasInWater = false;
 
     private int swingTick = 0;
     private int attackCooldown = 0;
@@ -87,7 +92,7 @@ public class Player extends Entity {
             respawn();
             return;
         }
-
+        updateOxygen();
         handleInput();
         inventory.update();
         hotBar.update();
@@ -96,8 +101,31 @@ public class Player extends Entity {
         sprite.update();
     }
 
+    private void updateOxygen() {
+        if (world == null) return;
+        if (isHeadSubmerged(world)) {
+            if (oxygen > 0) {
+                oxygen--;
+                drownDamageTimer = 0;
+            } else {
+                drownDamageTimer++;
+                if (drownDamageTimer >= 60) {
+                    drownDamageTimer = 0;
+                    takeDamage(2, getCenterX(), 0.0);
+                }
+            }
+        } else {
+            if (oxygen < maxOxygen) {
+                oxygen = Math.min(maxOxygen, oxygen + 4);
+            }
+            drownDamageTimer = 0;
+        }
+    }
+
     private void respawn() {
         this.health = this.maxHealth;
+        this.oxygen = this.maxOxygen;
+        this.drownDamageTimer = 0;
         this.hurtTimer = 40;
         this.fallSpeed = 0;
         this.knockbackVx = 0;
@@ -107,6 +135,10 @@ public class Player extends Entity {
     @Override
     public void draw(Graphics2D g) {
         g.drawImage(sprite.getFrame(), playerX, playerY, EnginePanel.tileSquare, EnginePanel.tileSquare, null);
+        if (world != null && isInWater(world)) {
+            g.setColor(new Color(25, 115, 220, 75));
+            g.fillRoundRect(playerX + 4, playerY + 2, width, height, 6, 6);
+        }
         if (hurtTimer > 0) {
             g.setColor(new Color(255, 40, 40, 115));
             g.fillRoundRect(playerX + 4, playerY + 2, width, height, 6, 6);
@@ -116,11 +148,14 @@ public class Player extends Entity {
 
     private void drawHeldTool(Graphics2D g) {
         Item held = hotBar.getCurrentItem();
-        if (held == null || (!held.isTool() && !held.getTileType().isFood()) || held.getTileType().getSprite() == null) {
+        if (held == null || held.getTileType() == null || held.getTileType().getSprite() == null) {
             return;
         }
-
-        BufferedImage toolSprite = held.getTileType().getSprite();
+        TileType type = held.getTileType();
+        if (!held.isTool() && !type.isFood() && !type.isBucket()) {
+            return;
+        }
+        BufferedImage toolSprite = type.getSprite();
         int toolSize = (int) (EnginePanel.tileSquare * 0.65);
         boolean facingLeft = (direction == Direction.LEFT);
 
@@ -189,25 +224,56 @@ public class Player extends Entity {
             worldManager.resetMining();
         }
 
+        boolean inWater = isInWater(world);
+        if (inWater && !wasInWater) {
+            fallSpeed *= 0.45;
+        }
+        wasInWater = inWater;
+
         double moveX = 0;
         if (KeyManager.isKeyPressed(KeyEvent.VK_A)) moveX -= 1;
         if (KeyManager.isKeyPressed(KeyEvent.VK_D)) moveX += 1;
 
         if (moveX != 0) {
             direction = moveX > 0 ? Direction.RIGHT : Direction.LEFT;
-            moveX *= speed;
+            moveX *= inWater ? (speed * 0.68) : speed;
         }
 
-        if (KeyManager.isKeyPressed(KeyEvent.VK_SPACE) && !isFalling) {
-            fallSpeed = -6;
-            isFalling = true;
-            EnginePanel.soundManager.playSound(Sound.PLAYER_JUMP);
+        if (inWater) {
+            double[] flow = world.getFluid().getWaterFlowForce(getBounds());
+            moveX += flow[0] * 1.35;
+
+            boolean swimUp = KeyManager.isKeyPressed(KeyEvent.VK_SPACE) || KeyManager.isKeyPressed(KeyEvent.VK_W);
+            boolean swimDown = KeyManager.isKeyPressed(KeyEvent.VK_S);
+
+            if (swimUp) {
+                fallSpeed = Math.max(fallSpeed - 0.42, -3.5);
+                isFalling = true;
+            } else {
+                double waterGravity = 0.08 + flow[1] * 0.06;
+                double maxSink = swimDown ? 4.2 : 2.4;
+                fallSpeed += waterGravity;
+                if (fallSpeed > maxSink) {
+                    fallSpeed = maxSink;
+                }
+            }
+
+            moveWithCollision(world, moveX + knockbackVx, fallSpeed);
+
+            // Impulso para sair da borda de lagos ao nadar contra uma parede rasa
+            if (swimUp && hitHorizontalWall && !isHeadSubmerged(world)) {
+                fallSpeed = -5.6;
+            }
+        } else {
+            if (KeyManager.isKeyPressed(KeyEvent.VK_SPACE) && !isFalling) {
+                fallSpeed = -6;
+                isFalling = true;
+                EnginePanel.soundManager.playSound(Sound.PLAYER_JUMP);
+            }
+            fallSpeed += gravity;
+            if (fallSpeed > maxFallSpeed) fallSpeed = maxFallSpeed;
+            moveWithCollision(world, moveX + knockbackVx, fallSpeed);
         }
-
-        fallSpeed += gravity;
-        if (fallSpeed > maxFallSpeed) fallSpeed = maxFallSpeed;
-
-        moveWithCollision(world, moveX + knockbackVx, fallSpeed);
     }
 
     private void handleDropKeyInWorld(boolean dropFullStack) {
@@ -301,10 +367,7 @@ public class Player extends Entity {
         if (item == null || item.getTileType() == null || item.getTileType() == TileType.AIR || item.getQuantity() <= 0) {
             return false;
         }
-        if (hasSpaceFor(hotBar, item) || hasSpaceFor(inventory, item)) {
-            return true;
-        }
-        return false;
+        return hasSpaceFor(hotBar, item) || hasSpaceFor(inventory, item);
     }
 
     private boolean hasSpaceFor(ItemContainer container, Item item) {
@@ -362,8 +425,7 @@ public class Player extends Entity {
 
     private int addStackableAndGetRemainder(TileType type, int amount) {
         int remaining = amount;
-
-        if (!type.isTool()) {
+        if (!type.isTool() && type != TileType.WATER_BUCKET) {
             remaining = stackIntoContainer(hotBar, type, remaining);
             if (remaining > 0) {
                 remaining = stackIntoContainer(inventory, type, remaining);
@@ -392,7 +454,7 @@ public class Player extends Entity {
     }
 
     private int stackIntoContainer(ItemContainer container, TileType type, int remaining) {
-        if (type.isTool()) {
+        if (type.isTool() || type == TileType.WATER_BUCKET) {
             return remaining;
         }
 
@@ -414,8 +476,7 @@ public class Player extends Entity {
     }
 
     private int placeInEmptySlot(ItemContainer container, TileType type, int remaining) {
-        int maxStack = type.isTool() ? 1 : MAX_STACK_SIZE;
-
+        int maxStack = (type.isTool() || type == TileType.WATER_BUCKET) ? 1 : MAX_STACK_SIZE;
         for (int r = 0; r < container.getRows(); r++) {
             for (int c = 0; c < container.getCols(); c++) {
                 if (container.getItem(r, c) == null) {

@@ -1,12 +1,15 @@
 package br.lucasfranke.world.render;
 
 import br.lucasfranke.EnginePanel;
+import br.lucasfranke.graphics.Assets;
+import br.lucasfranke.graphics.Sprite;
 import br.lucasfranke.model.block.FunctionalBlock;
 import br.lucasfranke.model.entity.Player;
 import br.lucasfranke.model.item.Item;
 import br.lucasfranke.model.type.TileType;
-import br.lucasfranke.world.interaction.BlockInteractionController;
 import br.lucasfranke.world.World;
+import br.lucasfranke.world.fluid.FluidManager;
+import br.lucasfranke.world.interaction.BlockInteractionController;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -14,11 +17,8 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 public class WorldRenderer {
-
-    private static final Color SKY_COLOR = new Color(75, 145, 235);
     private static final Color MOUSE_HOVER_FOREGROUND_COLOR = new Color(255, 255, 0, 120);
     private static final Color MOUSE_HOVER_BACKGROUND_COLOR = new Color(0, 200, 255, 130);
-
     private static final Color[] SHADOW_COLORS = new Color[16];
 
     private static final double BASE_PLAYER_LIGHT_RADIUS = 2.2;
@@ -28,7 +28,6 @@ public class WorldRenderer {
 
     private Integer cachedTorchBottomOffset = null;
     private ParallaxBackground parallaxBackground;
-
     private final Map<BufferedImage, BufferedImage[]> shadedSpriteCache = new IdentityHashMap<>();
 
     static {
@@ -74,6 +73,7 @@ public class WorldRenderer {
 
         for (int row = startRow; row <= endRow; row++) {
             if (!world.isValidY(row)) continue;
+
             for (int col = startCol; col <= endCol; col++) {
                 TileType fgTile = world.getBlock(col, row);
                 TileType bgTile = world.getBackgroundBlock(col, row);
@@ -83,10 +83,10 @@ public class WorldRenderer {
                 }
 
                 int finalLight = calculateTileLight(world, col, row, playerTileX, playerTileY, activeLightRadius, activeLightIntensity);
-
                 int screenX = (col * tileSize) - playerWorldX + playerScreenX;
                 int screenY = (row * tileSize) - playerWorldY + playerScreenY;
 
+                // 1. Desenha o bloco de background se o foreground não for totalmente opaco
                 if (!fgTile.isSolid() || hasTransparentPixels(fgTile)) {
                     if (bgTile != TileType.AIR && bgTile.getSprite() != null) {
                         if (hasTransparentPixels(bgTile)) {
@@ -98,6 +98,13 @@ public class WorldRenderer {
                     }
                 }
 
+                // 2. Se for ÁGUA, desenha EXCLUSIVAMENTE pelo drawWaterTile e pula o resto
+                if (fgTile == TileType.WATER) {
+                    drawWaterTile(g2, world, col, row, screenX, screenY, tileSize, finalLight);
+                    continue;
+                }
+
+                // 3. Desenha os demais blocos de foreground normalmente
                 if (fgTile != TileType.AIR) {
                     BufferedImage fgSprite = fgTile.getSprite();
                     if (fgTile.isFunctional()) {
@@ -106,12 +113,10 @@ public class WorldRenderer {
                             fgSprite = fb.getRenderSprite();
                         }
                     }
-
                     if (fgSprite != null) {
                         int offsetY = (fgTile == TileType.TORCH && world.isSolid(col, row + 1))
                                 ? getTorchBottomOffset(fgSprite)
                                 : 0;
-
                         if (fgTile == TileType.TORCH) {
                             g2.drawImage(fgSprite, screenX, screenY + offsetY, tileSize, tileSize, null);
                         } else if (hasTransparentPixels(fgTile)) {
@@ -128,9 +133,45 @@ public class WorldRenderer {
         drawHoverAndMiningOverlay(g2, player, interaction, tileSize, playerWorldX, playerWorldY, playerScreenX, playerScreenY);
     }
 
+    private void drawWaterTile(Graphics2D g2, World world, int col, int row,
+                               int screenX, int screenY, int tileSize, int finalLight) {
+        int level = world.getWaterLevel(col, row);
+        if (level <= 0) return;
+
+        boolean hasWaterAbove = world.getWaterLevel(col, row - 1) > 0;
+        BufferedImage waterSprite = null;
+
+        if (Assets.waterRowAnimations != null && Assets.waterRowAnimations.length > 0) {
+            int maxRowIndex = Assets.waterRowAnimations.length - 1;
+            int maxWaterLevel = FluidManager.MAX_WATER_LEVEL;
+            int rowIndex;
+
+            if (hasWaterAbove) {
+                // 1ª linha (índice 0): Águas profundas (abaixo de outro tile de água)
+                rowIndex = 0;
+            } else if (world.isWaterSource(col, row) || level >= maxWaterLevel) {
+                // 2ª linha (índice 1): Topo do lago / Água de origem
+                rowIndex = Math.min(1, maxRowIndex);
+            } else {
+                // 3ª linha em diante (índices 2..6): Água escorrendo (1 bloco = índice 2, 2 blocos = índice 3, etc.)
+                int distanceFromOrigin = maxWaterLevel - level;
+                rowIndex = Math.min(1 + distanceFromOrigin, maxRowIndex);
+            }
+
+            Sprite rowAnim = Assets.waterRowAnimations[rowIndex];
+            if (rowAnim != null) {
+                waterSprite = rowAnim.getFrame();
+            }
+        }
+
+        if (waterSprite != null) {
+            drawShadedSprite(g2, waterSprite, screenX, screenY, tileSize, finalLight);
+        }
+    }
+
     private boolean hasTransparentPixels(TileType type) {
         return switch (type) {
-            case OAK_WOOD, OAK_LEAVES, BACKGROUND_WOOD, BACKGROUND_LEAVES,
+            case WATER, OAK_WOOD, OAK_LEAVES, BACKGROUND_WOOD, BACKGROUND_LEAVES,
                  CHEST, CRAFTING_TABLE, FURNACE, TORCH, OAK_SAPLING -> true;
             default -> false;
         };
@@ -154,7 +195,6 @@ public class WorldRenderer {
             int playerLight = (int) (intensity * (1.0 - (dist / radius)));
             finalLight = Math.max(staticLight, playerLight);
         }
-
         return finalLight;
     }
 
@@ -186,7 +226,6 @@ public class WorldRenderer {
             bg.dispose();
             levels[idx] = shaded;
         }
-
         g2.drawImage(shaded, x, y, size, size, null);
     }
 
@@ -232,7 +271,6 @@ public class WorldRenderer {
 
     private void drawMiningOverlay(Graphics2D g2, int screenX, int screenY, int tileSize, float ratio) {
         int stage = (int) (ratio * 4);
-
         int shakeX = (ratio < 1.0f) ? (int) (Math.random() * 3) - 1 : 0;
         int shakeY = (ratio < 1.0f) ? (int) (Math.random() * 3) - 1 : 0;
 
@@ -277,7 +315,6 @@ public class WorldRenderer {
         int filledWidth = (int) (barWidth * ratio);
         Color barColor = ratio < 0.5f ? new Color(255, 220, 0)
                 : (ratio < 0.8f ? new Color(255, 140, 0) : new Color(255, 50, 50));
-
         g2d.setColor(barColor);
         g2d.fillRect(barX + 1, barY + 1, Math.max(0, filledWidth - 1), barHeight - 1);
 

@@ -16,6 +16,7 @@ public class WorldManager {
     private final BlockInteractionController interactionController;
     private final WorldRenderer renderer;
     public final EntityManager entityManager;
+
     public final int[] hoveredTileWorldPosition;
 
     public WorldManager() {
@@ -30,6 +31,7 @@ public class WorldManager {
     public void spawnPlayerOnGround() {
         int playerTileX = (int) (EnginePanel.player.worldX / EnginePanel.tileSquare);
         int groundY = 0;
+
         while (groundY < EnginePanel.CHUNK_HEIGHT - 1) {
             if (world.isSolid(playerTileX, groundY + 1)) {
                 break;
@@ -49,8 +51,10 @@ public class WorldManager {
 
         dayNightCycle.update(world.getLighting(), playerChunkX);
         world.updateActiveFunctionalBlocks(playerChunkX, 4);
+        world.getFluid().update(playerChunkX, 4);
         world.getFlora().updateNaturalLeaves(playerChunkX, 4);
         world.getFlora().updateSaplings();
+
         entityManager.update(EnginePanel.player);
         interactionController.update(EnginePanel.player);
     }

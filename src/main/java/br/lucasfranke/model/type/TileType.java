@@ -1,5 +1,6 @@
 package br.lucasfranke.model.type;
 
+import br.lucasfranke.graphics.Assets;
 import br.lucasfranke.graphics.Sprite;
 import br.lucasfranke.model.type.tool.ToolCategory;
 import br.lucasfranke.model.type.tool.ToolTier;
@@ -10,6 +11,7 @@ import java.awt.image.BufferedImage;
 public enum TileType {
 
     AIR(false, false, false, false, 0, 0),
+    WATER(false, false, false, false, 0, 0),
     GRASS(true, true, true, false, 0, 55),
     DIRT(true, true, true, false, 0, 55),
     STONE(true, true, true, false, 0, 155),
@@ -40,6 +42,8 @@ public enum TileType {
     COAL(false, false, false, false, 0, 0),
     IRON_INGOT(false, false, false, false, 0, 0),
     GOLD_INGOT(false, false, false, false, 0, 0),
+    BUCKET(false, false, false, false, 0, 0),
+    WATER_BUCKET(false, false, false, false, 0, 0),
 
     WOODEN_PICKAXE(false, false, false, false, 0, 0, ToolCategory.PICKAXE, ToolTier.WOOD),
     STONE_PICKAXE(false, false, false, false, 0, 0, ToolCategory.PICKAXE, ToolTier.STONE),
@@ -133,6 +137,10 @@ public enum TileType {
 
     public boolean isTool() {
         return toolCategory != ToolCategory.NONE && toolTier != ToolTier.NONE;
+    }
+
+    public boolean isBucket() {
+        return this == BUCKET || this == WATER_BUCKET;
     }
 
     public boolean isFood() {
@@ -256,5 +264,6 @@ public enum TileType {
                 type.animation.update();
             }
         }
+        Assets.updateWaterAnimations();
     }
 }
